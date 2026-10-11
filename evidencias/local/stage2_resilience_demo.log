@@ -1,0 +1,24 @@
+Cuenta de prueba: ca624fd0-7ddb-4bf3-9b18-e7e08bfecb16
+
+== 1. Detengo accounts-service
+
+== 2. POST /payments/deposit con accounts caído → se acepta como PENDING degradado (HTTP 202)
+{"paymentId":"88a3dcbb-d3a9-449a-835b-decfe983e30b","status":"PENDING","degraded":true,"degradedReason":"ACCOUNTS_UNAVAILABLE"}
+HTTP 202
+
+== 3. Estado de los circuitos de payments (/actuator/circuitbreakers)
+{"accounts":{"state":"CLOSED","failureRate":"30.0%"},"accounts-compensation":{"state":"CLOSED","failureRate":"-1.0%"},"customers":{"state":"CLOSED","failureRate":"0.0%"}}
+
+== 4. El gateway responde el fallback del circuit breaker (503 ProblemDetail + Retry-After)
+HTTP/1.1 503 Service Unavailable
+Retry-After: 5
+{"status":503,"code":"UPSTREAM_UNAVAILABLE","service":"accounts","detail":"El servicio 'accounts' no está disponible en este momento; reintente en unos segundos"}
+
+== 5. El pago NO se perdió: sigue PENDING
+{"status":"PENDING","degraded":true}
+
+== 6. Reinicio accounts-service: procesa el evento pendiente y el pago se completa solo
+  accounts-service listo (:8082)
+Estado final: COMPLETED (tras ~1s)
+[{"status":"PENDING","detail":"Solicitud aceptada en modo degradado: ACCOUNTS_UNAVAILABLE"},{"status":"COMPLETED","detail":"Depósito acreditado"}]
+Saldo final de la cuenta: 500.00

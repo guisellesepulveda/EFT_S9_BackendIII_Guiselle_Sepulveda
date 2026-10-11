@@ -1,0 +1,24 @@
+%% Comparación: legacy (archivos CSV + scripts Shell/COBOL sobre mainframe) frente a la plataforma nueva
+flowchart LR
+  subgraph LEG["LEGACY · mainframe, COBOL y Shell"]
+    direction TB
+    L1[("3 archivos CSV<br/>50-80 % de filas con algún defecto")] --> L2["Scripts Shell / programas COBOL<br/>secuenciales"]
+    L2 --> L3["Rechazos sin trazabilidad<br/>(se pierden o detienen todo)"]
+    L2 --> L4["Sin reinicio parcial · sin paralelismo<br/>un fallo = reprocesar el archivo completo"]
+    L5["Monolito: un cambio redespliega todo<br/>no se escala una sola parte"]
+    L6["Consultas y procesos acoplados por archivos<br/>sin eventos ni auditoría por operación"]
+    L7["Seguridad a nivel de aplicación<br/>misma API para todos los canales"]
+  end
+  subgraph NEW["NUEVO · Spring Cloud + Spring Batch + Kafka"]
+    direction TB
+    N1["Spring Batch: validación de archivo<br/>lectura → proceso → escritura → reporte"] --> N2["skip + retry con backoff<br/>rechazados en batch_rejected_record"]
+    N1 --> N3["Partitioning y multi-hilo: 3,9× y 4,1× con 8 hilos<br/>restart desde el último chunk confirmado"]
+    N5["Microservicios con base propia<br/>escalables con --scale 3/2/2"]
+    N6["Kafka: outbox + saga + DLT<br/>trazabilidad de cada evento (Zipkin)"]
+    N7["BFF por canal + OAuth2: scopes por canal<br/>mTLS en el cajero · tokens de otro canal → 403"]
+  end
+  L3 ==> N2
+  L4 ==> N3
+  L5 ==> N5
+  L6 ==> N6
+  L7 ==> N7

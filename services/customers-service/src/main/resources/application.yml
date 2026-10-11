@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: customers-service
+  profiles:
+    default: local
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+  cloud:
+    config:
+      username: ${CONFIG_SERVER_USER:config}
+      password: ${CONFIG_SERVER_PASSWORD:}
+      fail-fast: false
+  datasource:
+    url: jdbc:postgresql://${platform.postgres-host:localhost}:${POSTGRES_PORT:5432}/${CUSTOMERS_DB_NAME:customersdb}
+    username: ${CUSTOMERS_DB_USER:customers}
+    password: ${CUSTOMERS_DB_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate          # el esquema lo gestiona Flyway
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:9000/oauth2/jwks}
+
+server:
+  port: ${SERVER_PORT:8081}
+
+platform:
+  postgres-host: ${POSTGRES_HOST:localhost}
+  outbox:
+    enabled: false      # customers-service solo CONSUME eventos: no tiene tabla outbox ni publicador

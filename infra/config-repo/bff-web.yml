@@ -1,0 +1,123 @@
+# bff-web: HTTPS, sesión con cookie segura, OAuth2 Authorization Code + PKCE (cliente confidencial web-client) y
+# Resilience4j hacia accounts/customers/payments. Los tests importan este mismo archivo.
+server:
+  port: ${SERVER_PORT:8443}
+  ssl:
+    bundle: bff-tls                 # HTTPS siempre; los certificados vienen de certs/generate-dev-certs.sh (en AWS: ACM)
+    client-auth: none
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        name: BFFWEB_SESSION
+        http-only: true             # inaccesible desde JavaScript
+        secure: true                # solo por HTTPS
+        same-site: lax              # lax (no strict): el retorno del login desde el auth-server es una navegación entre sitios
+
+spring:
+  ssl:
+    bundle:
+      jks:
+        bff-tls:
+          keystore:
+            location: ${TLS_KEYSTORE:file:certs/out/server.p12}
+            password: ${KEYSTORE_PASSWORD}
+            type: PKCS12
+          truststore:
+            location: ${TLS_TRUSTSTORE:file:certs/out/truststore.p12}
+            password: ${TRUSTSTORE_PASSWORD}
+            type: PKCS12
+  security:
+    oauth2:
+      client:
+        registration:
+          web-client:
+            provider: auth-server
+            client-id: web-client
+            client-secret: ${WEB_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            client-authentication-method: client_secret_basic
+            scope: web:read,web:write
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+        provider:
+          auth-server:
+            # La autorización la abre el NAVEGADOR (URL pública); el canje del código lo hace el BFF por el canal interno
+            authorization-uri: ${AUTH_PUBLIC_URL:http://localhost:9000}/oauth2/authorize
+            token-uri: ${AUTH_TOKEN_URI:http://localhost:9000/oauth2/token}
+            user-name-attribute: sub
+
+management:
+  server:
+    port: ${MANAGEMENT_PORT:18443}  # Actuator en HTTP plano, solo red interna (health checks y Prometheus)
+    ssl:
+      enabled: false              # la gestión va en HTTP plano y solo por la red interna (nunca por el puerto público)
+
+eureka:
+  instance:
+    non-secure-port-enabled: false
+    secure-port-enabled: true
+    secure-port: ${server.port}
+
+bff:
+  customer-cache-ttl: 5m
+  web:
+    allowed-origins: https://localhost:3000     # SPA autorizada (CORS); lista cerrada
+    post-login-url: /web/me
+
+clients:
+  accounts:
+    url: ""
+  customers:
+    url: ""
+  payments:
+    url: ""
+
+spring.cloud.openfeign.client.config.default:
+  connect-timeout: 1000
+  read-timeout: 3000
+  logger-level: basic
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+        record-exceptions: [feign.FeignException, java.io.IOException, java.util.concurrent.TimeoutException]
+        ignore-exceptions: [cl.bancoxyz.platform.web.ApiException]
+    instances:
+      accounts: {base-config: default}
+      customers: {base-config: default}
+      payments: {base-config: default}
+  retry:
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 200ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions: [feign.FeignException, java.io.IOException, java.util.concurrent.TimeoutException]
+        ignore-exceptions: [cl.bancoxyz.platform.web.ApiException]
+    instances:
+      accounts: {base-config: default}
+      customers: {base-config: default}
+      payments: {base-config: default}
+  timelimiter:
+    configs:
+      default: {timeout-duration: 3s, cancel-running-future: true}
+    instances:
+      accounts: {base-config: default}
+      customers: {base-config: default}
+      payments: {base-config: default}
+  bulkhead:
+    configs:
+      default: {max-concurrent-calls: 25, max-wait-duration: 100ms}
+    instances:
+      accounts: {base-config: default}
+      customers: {base-config: default}
+      payments: {base-config: default}

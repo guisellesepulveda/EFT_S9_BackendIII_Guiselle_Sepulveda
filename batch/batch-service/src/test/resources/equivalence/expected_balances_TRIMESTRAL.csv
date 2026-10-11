@@ -1,0 +1,51 @@
+cuenta_id,nombre,tipo,saldo
+101,John Doe,prestamo,5150.00
+102,Unknown,ahorro,10062.50
+103,Jane Smith,prestamo,10300.00
+104,John Doe,prestamo,8240.00
+105,Jane Smith,prestamo,8240.00
+106,Diana Prince,hipoteca,5075.00
+107,Charlie Green,prestamo,7210.00
+108,Jane Smith,hipoteca,10150.00
+109,Steve Rogers,prestamo,5150.00
+110,Charlie Green,prestamo,12360.00
+111,Diana Prince,hipoteca,8120.00
+112,Diana Prince,hipoteca,7105.00
+113,Alice Brown,hipoteca,7105.00
+114,Unknown,ahorro,8050.00
+115,Diana Prince,prestamo,10300.00
+116,Alice Brown,hipoteca,8120.00
+117,Diana Prince,hipoteca,12180.00
+118,Diana Prince,hipoteca,5075.00
+119,Charlie Green,ahorro,5031.25
+120,Charlie Green,prestamo,5150.00
+121,Jane Smith,ahorro,10062.50
+122,Jane Smith,hipoteca,5075.00
+123,Jane Smith,hipoteca,8120.00
+124,Jane Smith,ahorro,10062.50
+125,Jane Smith,ahorro,7043.75
+126,John Doe,prestamo,8240.00
+127,Diana Prince,hipoteca,10150.00
+128,Jane Smith,hipoteca,12180.00
+129,Jane Smith,ahorro,8050.00
+130,Steve Rogers,hipoteca,7105.00
+131,Diana Prince,prestamo,7210.00
+132,Diana Prince,prestamo,8240.00
+133,Unknown,hipoteca,7105.00
+134,Diana Prince,ahorro,10062.50
+135,Charlie Green,hipoteca,8120.00
+136,Steve Rogers,prestamo,7210.00
+137,Diana Prince,prestamo,5150.00
+138,John Doe,hipoteca,5075.00
+139,John Doe,ahorro,5031.25
+140,Charlie Green,prestamo,8240.00
+141,Jane Smith,ahorro,7043.75
+142,Charlie Green,prestamo,12360.00
+143,John Doe,hipoteca,8120.00
+144,John Doe,prestamo,5150.00
+145,Jane Smith,ahorro,8050.00
+146,Bob Johnson,ahorro,8050.00
+147,Jane Smith,hipoteca,10150.00
+148,Charlie Green,hipoteca,7105.00
+149,Charlie Green,hipoteca,5075.00
+150,Diana Prince,prestamo,7210.00

@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: banco-xyz
+    folder: Banco XYZ
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

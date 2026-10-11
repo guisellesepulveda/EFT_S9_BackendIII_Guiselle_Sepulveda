@@ -1,0 +1,15 @@
+# Contexto de build mínimo y ESTABLE: solo el código fuente. Así la capa "COPY . ." es idéntica para los 11 Dockerfiles
+# (BuildKit la cachea y el reactor Maven se compila una sola vez) y no cambia al editar docs, scripts o el compose.
+**
+!pom.xml
+!libs/**
+!infra/config-server/**
+!infra/discovery-server/**
+!infra/auth-server/**
+!infra/api-gateway/**
+!services/**
+!bff/**
+!batch/**
+**/target
+**/Dockerfile
+**/*.log

@@ -1,0 +1,32 @@
+%% Arquitectura objetivo productiva (CONCEPTUAL, no desplegada · despliegue.md, Parte B)
+flowchart TB
+  USR["Usuarios web y móvil"] --> R53["Route 53"]
+  ATM["Cajeros"] --> R53
+  R53 --> ALB["ALB · HTTPS con ACM<br/>mTLS con trust store para el ATM"]
+  subgraph VPC["VPC · 2 zonas de disponibilidad · subredes privadas"]
+    subgraph ECS["ECS Fargate · un servicio por microservicio/BFF · Service Auto Scaling (CPU 60 % · requests por target)"]
+      GWS["api-gateway"]
+      BW["bff-web"]
+      BM["bff-mobile"]
+      BA["bff-atm"]
+      CUS["customers-service"]
+      ACC["accounts-service"]
+      PAY["payments-service"]
+      BAT["batch-service"]
+      AUTH["auth-server"]
+    end
+    CM["Cloud Map / ECS Service Connect<br/>(o Eureka como contenedor)"]
+    RDS[("RDS PostgreSQL Multi-AZ<br/>una base por servicio")]
+    MSK[["Amazon MSK<br/>Kafka gestionado"]]
+  end
+  ALB --> GWS & BW & BM
+  ALB -- "mTLS" --> BA
+  GWS --> CUS & ACC & PAY
+  BW & BM & BA --> CUS & ACC & PAY
+  ECS --> RDS
+  ECS --> MSK
+  ECS -. "descubrimiento" .-> CM
+  SM["Secrets Manager"] -. "secretos" .-> ECS
+  ECS --> CW["CloudWatch Logs · Container Insights · X-Ray / ADOT"]
+  ECR["ECR · imágenes"] --> ECS
+  CI["GitHub Actions · CI/CD"] --> ECR

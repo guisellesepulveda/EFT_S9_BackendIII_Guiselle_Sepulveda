@@ -1,0 +1,82 @@
+== 1. PostgreSQL
+== 2. Compilar y arrancar batch-service (perfil basic)
+App arriba (health UP)
+
+== 3. Seguridad: sin token -> 401; con token pero sin rol se prueba en BatchApiSecurityIT
+POST sin credenciales: HTTP 401
+
+== 4. dailyTransactionReportJob
+executionId=1 estado=COMPLETED
+  validateFileStep         COMPLETED leidos=0     escritos=0     omitidos=0     filtrados=0
+  loadMovementsStep        COMPLETED leidos=1000  escritos=209   omitidos=791   filtrados=0
+  summarizeStep            COMPLETED leidos=185   escritos=185   omitidos=0     filtrados=0
+  exportReportStep         COMPLETED leidos=185   escritos=185   omitidos=0     filtrados=0
+  executionReportStep      COMPLETED leidos=0     escritos=0     omitidos=0     filtrados=0
+
+== 4. annualStatementJob
+executionId=2 estado=COMPLETED
+  validateFileStep         COMPLETED leidos=0     escritos=0     omitidos=0     filtrados=0
+  loadTransactionsStep     COMPLETED leidos=1000  escritos=230   omitidos=770   filtrados=0
+  consolidateStep          COMPLETED leidos=20    escritos=20    omitidos=0     filtrados=0
+  exportAccountFilesStep   COMPLETED leidos=20    escritos=20    omitidos=0     filtrados=0
+  executionReportStep      COMPLETED leidos=0     escritos=0     omitidos=0     filtrados=0
+
+== 5. monthlyInterestJob con fallo forzado en el chunk 5 (simulateFailureAtChunk=5)
+1.a ejecución 3: FAILED
+  validateFileStep         COMPLETED leidos=0     escritos=0     omitidos=0     filtrados=0
+  calculateInterestStep    FAILED    leidos=250   escritos=100   omitidos=129   filtrados=0
+ filas_confirmadas_antes_del_restart 
+-------------------------------------
+                                 100
+(1 row)
+
+== 6. Reinicio con los MISMOS parámetros (continúa desde el último chunk confirmado)
+2.a ejecución 4 (misma instancia): COMPLETED
+  calculateInterestStep    COMPLETED leidos=800   escritos=409   omitidos=389   filtrados=2
+  updateBalancesStep       COMPLETED leidos=50    escritos=50    omitidos=0     filtrados=0
+  executionReportStep      COMPLETED leidos=0     escritos=0     omitidos=0     filtrados=0
+ filas_finales | claves_distintas 
+---------------+------------------
+           509 |              509
+(1 row)
+
+
+== 7. Rechazados (primeros 8) y conteo por motivo
+      job_name      | line_number | disposition |              reason_code              |            raw_content             
+--------------------+-------------+-------------+---------------------------------------+------------------------------------
+ monthlyInterestJob |           3 | SKIPPED     | INVALID_ACCOUNT_TYPE                  | 139,John Doe,7000,100,-1
+ monthlyInterestJob |           5 | SKIPPED     | MISSING_BALANCE                       | 134,Steve Rogers,,45,hipoteca
+ monthlyInterestJob |           7 | SKIPPED     | INVALID_ACCOUNT_TYPE                  | 124,Charlie Green,12000,30,-1
+ monthlyInterestJob |           8 | SKIPPED     | INVALID_ACCOUNT_TYPE                  | 104,Bob Johnson,7000,30,-1
+ monthlyInterestJob |          10 | SKIPPED     | AGE_OUT_OF_RANGE;INVALID_ACCOUNT_TYPE | 124,Jane Smith,12000,150,-1
+ monthlyInterestJob |          12 | SKIPPED     | AGE_OUT_OF_RANGE                      | 109,Diana Prince,7000,150,prestamo
+ monthlyInterestJob |          13 | SKIPPED     | MISSING_BALANCE                       | 135,Charlie Green,,45,ahorro
+ monthlyInterestJob |          14 | SKIPPED     | INVALID_ACCOUNT_TYPE                  | 145,Alice Brown,5000,30,-1
+(8 rows)
+
+         job_name          | disposition | count 
+---------------------------+-------------+-------
+ annualStatementJob        | SKIPPED     |   770
+ dailyTransactionReportJob | SKIPPED     |   791
+ monthlyInterestJob        | FILTERED    |     2
+ monthlyInterestJob        | SKIPPED     |   489
+(4 rows)
+
+== 8. Anomalías del job diario por tipo
+    anomaly_type     | count 
+---------------------+-------
+ INVALID_DATE        |   501
+ MISSING_AMOUNT      |   168
+ NON_POSITIVE_AMOUNT |   145
+ OUTLIER_AMOUNT      |    34
+ UNKNOWN_TYPE        |   383
+(5 rows)
+
+== 9. Archivos generados
+/tmp/batch-demo-out/annual:
+1791597929702
+
+/tmp/batch-demo-out/daily:
+daily_transaction_report_1791597928223.csv
+
+Log completo en evidencias/local/batch_demo.log

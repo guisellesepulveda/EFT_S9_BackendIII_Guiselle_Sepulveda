@@ -1,0 +1,34 @@
+{
+  "_comentario": "EJEMPLO CONCEPTUAL (NO desplegado). Service Auto Scaling de ECS por seguimiento de objetivo. Se registran con: aws application-autoscaling register-scalable-target --service-namespace ecs --resource-id service/<cluster>/accounts-service --scalable-dimension ecs:service:DesiredCount --min-capacity 2 --max-capacity 6   y luego: aws application-autoscaling put-scaling-policy --cli-input-json file://ecs-autoscaling-policy.json",
+  "policies": [
+    {
+      "PolicyName": "accounts-service-cpu-60",
+      "ServiceNamespace": "ecs",
+      "ResourceId": "service/<cluster>/accounts-service",
+      "ScalableDimension": "ecs:service:DesiredCount",
+      "PolicyType": "TargetTrackingScaling",
+      "TargetTrackingScalingPolicyConfiguration": {
+        "TargetValue": 60.0,
+        "PredefinedMetricSpecification": { "PredefinedMetricType": "ECSServiceAverageCPUUtilization" },
+        "ScaleOutCooldown": 60,
+        "ScaleInCooldown": 300
+      }
+    },
+    {
+      "PolicyName": "accounts-service-requests-per-target",
+      "ServiceNamespace": "ecs",
+      "ResourceId": "service/<cluster>/accounts-service",
+      "ScalableDimension": "ecs:service:DesiredCount",
+      "PolicyType": "TargetTrackingScaling",
+      "TargetTrackingScalingPolicyConfiguration": {
+        "TargetValue": 500.0,
+        "PredefinedMetricSpecification": {
+          "PredefinedMetricType": "ALBRequestCountPerTarget",
+          "ResourceLabel": "<app/ALB/xxxx/targetgroup/TG/yyyy>"
+        },
+        "ScaleOutCooldown": 60,
+        "ScaleInCooldown": 300
+      }
+    }
+  ]
+}

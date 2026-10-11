@@ -1,0 +1,37 @@
+%% Los tres jobs Spring Batch: steps, skip/retry y paralelismo. Todos: validateFileStep (Tasklet) → lectura/proceso/escritura (JdbcBatchItemWriter) → executionReportStep
+flowchart TB
+  subgraph D["dailyTransactionReportJob · movimientos_financieros_diarios.csv"]
+    direction TB
+    D1["validateFileStep"] --> D2{{"loadMovementsStep · MANAGER<br/>LineRangePartitioner · gridSize = N<br/>TaskExecutorPartitionHandler"}}
+    D2 --> DP1["partición 1"] & DP2["partición 2"] & DPN["partición N"]
+    DP1 & DP2 & DPN --> D3["summarizeStep<br/>resumen por tipo / cuenta / día"]
+    D3 --> D4["exportReportStep<br/>CSV de reporte"] --> D5["executionReportStep"]
+    D2 -. "monto ≤ 0 · tipo desconocido · fecha inválida · atípicos" .-> ANO[("transaction_anomaly")]
+  end
+  subgraph I["monthlyInterestJob · intereses_trimestrales.csv · periodo MENSUAL | TRIMESTRAL"]
+    direction TB
+    I1["validateFileStep"] --> I2["calculateInterestStep<br/>tasa anual ÷ 12 ó ÷ 4 por tipo de cuenta<br/>deduplicación por clave de negocio"] --> I3["updateBalancesStep<br/>última línea por cuenta prevalece"] --> I4["executionReportStep"]
+  end
+  subgraph A["annualStatementJob · estados_financieros_anuales.csv"]
+    direction TB
+    A1["validateFileStep"] --> A2{{"loadTransactionsStep<br/>multi-hilo · TaskExecutor<br/>SynchronizedItemStreamReader"}} --> A3["consolidateStep<br/>depósitos · retiros · saldo final"] --> A4["exportAccountFilesStep<br/>CSV y JSON por cuenta"] --> A5["executionReportStep"]
+  end
+  subgraph ERR["Manejo de errores (faultTolerant)"]
+    direction TB
+    SK["skip: FlatFileParseException · InvalidRecordException<br/>skipLimit configurable"] --> REJ[("batch_rejected_record<br/>job · línea · motivo · contenido crudo")]
+    RT["retry: TransientDataAccessException<br/>CannotGetJdbcConnectionException<br/>backoff exponencial"]
+    FL["procesador devuelve null<br/>filtra duplicados"] --> REJ
+  end
+  subgraph RUN["Ejecución y recuperación"]
+    direction TB
+    API["POST /api/batch/jobs/jobName · rol BATCH_ADMIN · @Scheduled cron"] --> JR[("JobRepository<br/>PostgreSQL")]
+    JR --> FAIL{"¿FAILED?"}
+    FAIL -- "sí" --> AUTO["reintento automático<br/>N veces con espera + evento batch.job.failed"]
+    AUTO --> RESTART["restart: continúa desde el último chunk confirmado"]
+    FAIL -- "no" --> OK["COMPLETED + evento batch.job.events"]
+  end
+  RUN --> CSV[("CSV legacy")]
+  CSV --> D1 & I1 & A1
+  D2 --- ERR
+  I2 --- ERR
+  A2 --- ERR

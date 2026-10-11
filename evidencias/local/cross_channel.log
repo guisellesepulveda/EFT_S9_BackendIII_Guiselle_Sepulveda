@@ -1,0 +1,25 @@
+== Matriz de seguridad por canal: token de cada canal contra cada BFF
+   Sondas: BFF web GET /web/dashboard (solo sesión) · BFF móvil GET /mobile/home (scope mobile:read) · BFF ATM GET /atm/withdrawals/sonda (scope atm:operate, con certificado de cajero válido)
+
+-- token del canal 'web'
+  ✔ web → BFF web (Bearer)   → HTTP 401 (rechazado)
+  ✔ web → BFF móvil           → HTTP 403 (rechazado)
+  ✔ web → BFF ATM (mTLS)     → HTTP 403 (rechazado)
+-- token del canal 'mobile'
+  ✔ mobile → BFF web (Bearer)   → HTTP 401 (rechazado)
+  ✔ mobile → BFF móvil           → HTTP 200 (autorizado)
+  ✔ mobile → BFF ATM (mTLS)     → HTTP 403 (rechazado)
+-- token del canal 'atm'
+  ✔ atm → BFF web (Bearer)   → HTTP 401 (rechazado)
+  ✔ atm → BFF móvil           → HTTP 403 (rechazado)
+  ✔ atm → BFF ATM (mTLS)     → HTTP 404 (autorizado)
+-- token del canal 'internal'
+  ✔ internal → BFF web (Bearer)   → HTTP 401 (rechazado)
+  ✔ internal → BFF móvil           → HTTP 403 (rechazado)
+  ✔ internal → BFF ATM (mTLS)     → HTTP 403 (rechazado)
+
+-- sin token
+  ✔ sin token → BFF móvil → HTTP 401 (rechazado)
+  ✔ sin token → BFF ATM (con certificado) → HTTP 401 (rechazado)
+
+MATRIZ POR CANAL: TODO CORRECTO

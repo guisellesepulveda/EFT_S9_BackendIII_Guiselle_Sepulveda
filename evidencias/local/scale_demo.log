@@ -1,0 +1,93 @@
+== 1. Escalado horizontal: accounts-service×3, payments-service×2, customers-service×2
+$ docker compose up -d --scale accounts-service=3 --scale payments-service=2 --scale customers-service=2
+   Container banco-xyz-postgres-1 Running 
+   Container banco-xyz-bff-atm-1 Running 
+   Container banco-xyz-grafana-1 Running 
+   Container banco-xyz-kafka-ui-1 Running 
+   Container banco-xyz-config-server-1 Running 
+   Container banco-xyz-api-gateway-1 Running 
+   Container banco-xyz-auth-server-1 Running 
+   Container banco-xyz-prometheus-1 Running 
+   Container banco-xyz-bff-mobile-1 Running 
+   Container banco-xyz-customers-service-1 Running 
+   Container banco-xyz-customers-service-2 Running 
+   Container banco-xyz-discovery-server-1 Running 
+
+$ docker compose ps accounts-service payments-service customers-service
+NAME                            SERVICE             STATUS                    PORTS
+banco-xyz-accounts-service-1    accounts-service    Up 10 minutes (healthy)   8082/tcp
+banco-xyz-accounts-service-2    accounts-service    Up 32 seconds (healthy)   8082/tcp
+banco-xyz-accounts-service-3    accounts-service    Up 9 minutes (healthy)    8082/tcp
+banco-xyz-customers-service-1   customers-service   Up 10 minutes (healthy)   8081/tcp
+banco-xyz-customers-service-2   customers-service   Up 9 minutes (healthy)    8081/tcp
+banco-xyz-payments-service-1    payments-service    Up 10 minutes (healthy)   8083/tcp
+banco-xyz-payments-service-2    payments-service    Up 9 minutes (healthy)    8083/tcp
+  (ninguna réplica publica puertos al host ni fija container_name: solo el gateway y los BFF son accesibles desde fuera)
+
+== 2. Eureka: instancias registradas (dashboard: http://localhost:8761, usuario eureka)
+  ACCOUNTS-SERVICE     3 UP  461118f71f75, 46ccfe176da6, 9147bcac38e8
+  API-GATEWAY          1 UP  e941a0c421f2
+  AUTH-SERVER          1 UP  d0af90282299
+  BATCH-SERVICE        1 UP  97c3876a9d4b
+  BFF-ATM              1 UP  5fea595e2bb1
+  BFF-MOBILE           1 UP  608edc8356d6
+  BFF-WEB              1 UP  ebd460848f12
+  CUSTOMERS-SERVICE    2 UP  79deb19997ef, adb815f3c686
+  PAYMENTS-SERVICE     2 UP  06d6414b6a80, 803681ba09ec
+
+== 3. Reparto de carga: 30 GET por servicio a través del gateway (Spring Cloud LoadBalancer, round-robin)
+  GET /api/customers/fd549613-66f4-494f-8165-96ff8a9f6dde  (customers-service)
+ peticiones → HTTP    15 200 · instancia customers-service:79deb19997ef:1
+ peticiones → HTTP    15 200 · instancia customers-service:adb815f3c686:1
+  GET /api/accounts/85364f19-74fe-4309-9332-a8bfb5e48a75  (accounts-service)
+ peticiones → HTTP    10 200 · instancia accounts-service:461118f71f75:1
+ peticiones → HTTP    10 200 · instancia accounts-service:46ccfe176da6:1
+ peticiones → HTTP    10 200 · instancia accounts-service:9147bcac38e8:1
+  GET /api/payments/bea586d3-c10d-4378-8094-82a7d54de10f  (payments-service)
+ peticiones → HTTP    15 200 · instancia payments-service:06d6414b6a80:1
+ peticiones → HTTP    15 200 · instancia payments-service:803681ba09ec:1
+  Peticiones atendidas por instancia según Prometheus (métrica http_server_requests, scrape por DNS de las réplicas):
+    customers-service  172.18.0.16:8081=49, 172.18.0.20:8081=50
+    accounts-service   172.18.0.15:8082=203, 172.18.0.21:8082=204, 172.18.0.22:8082=10
+    payments-service   172.18.0.13:8083=43, 172.18.0.19:8083=38
+
+== 4. Tolerancia a fallos: se mata UNA réplica de accounts-service SIN aviso y el tráfico continúa
+$ docker stop -t 0 banco-xyz-accounts-service-2     # caída brusca: no se da de baja en Eureka
+  40 peticiones inmediatas (30 GET + 10 POST /api/accounts), sin esperar a que Eureka expulse la instancia:
+  GET /api/accounts/{id}
+ peticiones → HTTP    15 200 · instancia accounts-service:461118f71f75:1
+ peticiones → HTTP    15 200 · instancia accounts-service:46ccfe176da6:1
+  POST /api/accounts → 10 creadas (201), 0 fallidas
+  (el gateway reintenta las escrituras SOLO ante conexión rechazada; si una conexión reutilizada se cerró a mitad, el cliente reintenta)
+  Eureka (la instancia caída sale por vencimiento del lease, ~15 s):
+  ACCOUNTS-SERVICE     2 UP  461118f71f75, 46ccfe176da6
+  Tras la expulsión, 30 GET más:
+ peticiones → HTTP    15 200 · instancia accounts-service:461118f71f75:1
+ peticiones → HTTP    15 200 · instancia accounts-service:46ccfe176da6:1
+
+== 5. Restauro la réplica y el reparto vuelve a 3 instancias
+$ docker start banco-xyz-accounts-service-2
+  ACCOUNTS-SERVICE     3 UP  461118f71f75, 46ccfe176da6, 9147bcac38e8
+ peticiones → HTTP    10 200 · instancia accounts-service:461118f71f75:1
+ peticiones → HTTP    10 200 · instancia accounts-service:46ccfe176da6:1
+ peticiones → HTTP    10 200 · instancia accounts-service:9147bcac38e8:1
+
+== 6. Kafka: las particiones de cada tópico se reparten entre las réplicas del grupo de consumidores
+$ kafka-consumer-groups --describe --group accounts-saga-requested
+    transactions.requested partición 0 → réplica 172.18.0.22
+    transactions.requested partición 1 → réplica 172.18.0.21
+    transactions.requested partición 2 → réplica 172.18.0.15
+$ kafka-consumer-groups --describe --group payments-saga-debited
+    transactions.debited   partición 0 → réplica 172.18.0.13
+    transactions.debited   partición 1 → réplica 172.18.0.13
+    transactions.debited   partición 2 → réplica 172.18.0.19
+
+$ docker compose ps  (resumen final)
+NAME                            STATUS
+banco-xyz-accounts-service-1    Up 11 minutes (healthy)
+banco-xyz-accounts-service-2    Up 28 seconds (healthy)
+banco-xyz-accounts-service-3    Up 11 minutes (healthy)
+banco-xyz-customers-service-1   Up 11 minutes (healthy)
+banco-xyz-customers-service-2   Up 11 minutes (healthy)
+banco-xyz-payments-service-1    Up 11 minutes (healthy)
+banco-xyz-payments-service-2    Up 11 minutes (healthy)

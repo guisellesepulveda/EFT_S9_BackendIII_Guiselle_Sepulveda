@@ -1,0 +1,89 @@
+spring:
+  application:
+    name: batch-service
+  config:
+    # El Config Server (Etapa 2) sirve infra/config-repo/batch-service.yml; es opcional para correr aislado
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+  cloud:
+    config:
+      username: ${CONFIG_SERVER_USER:}
+      password: ${CONFIG_SERVER_PASSWORD:}
+      fail-fast: false
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${BATCH_DB_NAME:batchdb}
+    username: ${BATCH_DB_USER:batch}
+    password: ${BATCH_DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 20
+  batch:
+    jdbc:
+      initialize-schema: always   # metadatos de Spring Batch (JobRepository) en PostgreSQL
+    job:
+      enabled: false              # los jobs se lanzan por REST/cron, no al arrancar
+  flyway:
+    enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer   # el contrato se serializa como JSON (ISO) en el publisher
+      properties:
+        enable.idempotence: true
+        max.block.ms: 5000
+        delivery.timeout.ms: 15000
+        request.timeout.ms: 5000
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:9000/oauth2/jwks}
+
+server:
+  port: ${SERVER_PORT:8085}
+
+logging:
+  level:
+    # Aviso esperado: el step multi-hilo usa saveState=false (restart idempotente por claves únicas, ver AnnualJobConfig)
+    org.springframework.batch.core.step.item.ChunkMonitor: ERROR
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+# Valores por defecto de los jobs; en despliegue los sobreescribe infra/config-repo/batch-service.yml
+batch:
+  chunk-size: 100
+  skip-limit: 5000
+  retry-limit: 3
+  backoff:
+    initial: 200ms
+    multiplier: 2.0
+    max: 5s
+  parallelism:
+    grid-size: 4
+    threads: 4
+  output-dir: ${BATCH_OUTPUT_DIR:./outputs}
+  date-formats: yyyy-MM-dd,yyyy/MM/dd
+  anomaly:
+    amount-threshold: 2500
+  interest:
+    annual-rates:
+      ahorro: 0.0250
+      prestamo: 0.1200
+      hipoteca: 0.0600
+  auto-retry:
+    enabled: true
+    max-attempts: 3
+    delay: 30s
+  schedule:
+    enabled: false
+  events:
+    enabled: true
+    topic: batch.job.events

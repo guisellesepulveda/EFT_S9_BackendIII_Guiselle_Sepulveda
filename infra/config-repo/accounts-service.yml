@@ -1,0 +1,82 @@
+# accounts-service: cliente OAuth2 interno, Feign y Resilience4j (llamadas a customers-service).
+# Los tests importan este mismo archivo (spring.config.import) para validar la configuración real.
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          internal:                       # token client_credentials del cliente internal-service (scope internal)
+            client-id: internal-service
+            client-secret: ${INTERNAL_SERVICE_CLIENT_SECRET}
+            authorization-grant-type: client_credentials
+            client-authentication-method: client_secret_basic
+            scope: internal
+        provider:
+          internal:
+            token-uri: ${AUTH_TOKEN_URI:http://localhost:9000/oauth2/token}
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 1000
+            read-timeout: 3000
+            logger-level: basic
+
+clients:
+  customers:
+    url: ""                               # vacío = descubrimiento por Eureka + Spring Cloud LoadBalancer
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+        record-exceptions:
+          - feign.FeignException
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+        ignore-exceptions:
+          - cl.bancoxyz.platform.web.ApiException      # errores de negocio (404/422) no son caídas
+    instances:
+      customers:
+        base-config: default
+  retry:
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 200ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - feign.FeignException
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+        ignore-exceptions:
+          - cl.bancoxyz.platform.web.ApiException
+    instances:
+      customers:
+        base-config: default
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 2s
+        cancel-running-future: true
+    instances:
+      customers:
+        base-config: default
+  bulkhead:
+    configs:
+      default:
+        max-concurrent-calls: 20
+        max-wait-duration: 100ms
+    instances:
+      customers:
+        base-config: default

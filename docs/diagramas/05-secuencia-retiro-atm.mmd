@@ -1,0 +1,47 @@
+%% Retiro en el cajero: mTLS + client_credentials + PIN + límites + Idempotency-Key + fallback seguro
+sequenceDiagram
+  autonumber
+  actor U as Usuario
+  participant ATM as Cajero ATM-0001
+  participant AS as auth-server
+  participant B as bff-atm
+  participant DB as atmdb
+  participant P as payments-service
+  participant A as accounts-service
+  participant K as Kafka
+
+  ATM->>AS: client_credentials (atm-client, scope atm:operate)
+  AS-->>ATM: JWT corto (5 min)
+  U->>ATM: tarjeta + PIN + monto
+  ATM->>B: POST /atm/withdrawals · mTLS (certificado de cliente) · Bearer · Idempotency-Key
+  B->>B: handshake exige certificado firmado por la CA · CN = ATM-0001 · no revocado
+  alt sin certificado, CA ajena o cajero revocado
+    B-->>ATM: handshake falla (o 403 ATM_REVOKED) + alerta
+  else certificado válido
+    B->>B: JWT con atm:operate (un token de otro canal → 403 + alerta CROSS_CHANNEL_TOKEN_REJECTED)
+    B->>DB: ¿Idempotency-Key ya vista? mismo cajero, tarjeta y monto → misma decisión
+    B->>DB: PIN (BCrypt) con bloqueo por tarjeta · 3 errores → 423
+    B->>DB: lock por tarjeta: límite 200.000 por retiro y 500.000 por día
+    B->>DB: reserva REQUESTED + auditoría
+    B->>P: POST /payments/withdraw (Idempotency-Key = atm-clave)
+    alt payments o accounts caídos
+      B-->>ATM: 503 "Servicio temporalmente no disponible" · dispense=false
+    else pago aceptado
+      loop hasta 3 s (timeouts estrictos)
+        B->>P: GET /payments/{id}
+      end
+      alt COMPLETED
+        P->>A: débito confirmado (saga)
+        B->>DB: APPROVED + auditoría
+        B-->>ATM: 200 · dispense=true
+      else FAILED o fondos insuficientes
+        B->>DB: DECLINED
+        B-->>ATM: 422 · dispense=false
+      else sin confirmación a tiempo
+        B-->>ATM: 202 PENDING · dispense=false
+        ATM->>B: GET /atm/withdrawals/{clave} (consulta hasta confirmar)
+      end
+    end
+  end
+  B->>K: security.alerts (PIN_FAILED · CARD_LOCKED · DAILY_LIMIT_EXCEEDED · CROSS_CHANNEL_TOKEN_REJECTED) por outbox
+  Note over ATM,B: nunca se dispensa dinero sin ver COMPLETED

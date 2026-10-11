@@ -1,0 +1,593 @@
+{
+  "components" : {
+    "schemas" : {
+      "AccountView" : {
+        "properties" : {
+          "balance" : {
+            "example" : 7499.5,
+            "type" : "number"
+          },
+          "currency" : {
+            "example" : "CLP",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "movementsAvailable" : {
+            "type" : "boolean"
+          },
+          "number" : {
+            "example" : "CL1000000001",
+            "type" : "string"
+          },
+          "openedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "recentMovements" : {
+            "description" : "null si el servicio de movimientos no respondió",
+            "items" : {
+              "$ref" : "#/components/schemas/MovementView"
+            },
+            "type" : "array"
+          },
+          "status" : {
+            "example" : "OPEN",
+            "type" : "string"
+          },
+          "type" : {
+            "example" : "CHECKING",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "AccountsPage" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AccountView"
+            },
+            "type" : "array"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalItems" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "totalPages" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "CustomerCard" : {
+        "properties" : {
+          "email" : {
+            "example" : "camila@example.com",
+            "type" : "string"
+          },
+          "fullName" : {
+            "example" : "Camila Rojas",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "phone" : {
+            "example" : "+56912345678",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Dashboard" : {
+        "properties" : {
+          "accounts" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AccountView"
+            },
+            "type" : "array"
+          },
+          "customer" : {
+            "$ref" : "#/components/schemas/CustomerCard"
+          },
+          "degraded" : {
+            "description" : "true si alguna parte del tablero se sirvió de forma parcial",
+            "type" : "boolean"
+          },
+          "generatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "profile" : {
+            "$ref" : "#/components/schemas/ProfileCard",
+            "description" : "null si customers-service no respondió"
+          },
+          "totalBalance" : {
+            "example" : 9999.5,
+            "type" : "number"
+          },
+          "unavailable" : {
+            "example" : [ "profile" ],
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "Me" : {
+        "properties" : {
+          "channel" : {
+            "example" : "web",
+            "type" : "string"
+          },
+          "roles" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "scopes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "username" : {
+            "example" : "customer1",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "MovementView" : {
+        "properties" : {
+          "amount" : {
+            "example" : 10000.0,
+            "type" : "number"
+          },
+          "at" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "balanceAfter" : {
+            "type" : "number"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "paymentId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "status" : {
+            "example" : "CONFIRMED",
+            "type" : "string"
+          },
+          "type" : {
+            "example" : "CREDIT",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "MovementsPage" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/MovementView"
+            },
+            "type" : "array"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalItems" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "totalPages" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "ProfileCard" : {
+        "properties" : {
+          "accountsClosed" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "accountsOpen" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "lastAccountEventAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "TransferRequest" : {
+        "properties" : {
+          "amount" : {
+            "example" : 2500.5,
+            "minimum" : 0.01,
+            "type" : "number"
+          },
+          "description" : {
+            "example" : "Arriendo octubre",
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "fromAccountId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "toAccountId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "required" : [ "amount", "fromAccountId", "toAccountId" ],
+        "type" : "object"
+      },
+      "TransferView" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "completedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "degraded" : {
+            "type" : "boolean"
+          },
+          "failureCode" : {
+            "type" : "string"
+          },
+          "fromAccountId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "paymentId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "requestedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "status" : {
+            "example" : "PENDING",
+            "type" : "string"
+          },
+          "toAccountId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      }
+    }
+  },
+  "info" : {
+    "title" : "OpenAPI definition",
+    "version" : "v0"
+  },
+  "openapi" : "3.1.0",
+  "paths" : {
+    "/web/accounts" : {
+      "get" : {
+        "operationId" : "accounts",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "type",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 10,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountsPage"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Mis cuentas con paginación y filtros (status, type)",
+        "tags" : [ "BFF web" ]
+      }
+    },
+    "/web/accounts/{id}" : {
+      "get" : {
+        "operationId" : "account",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "movements",
+          "required" : false,
+          "schema" : {
+            "default" : 10,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Detalle de una cuenta propia con sus últimos movimientos (cuenta y movimientos en paralelo)",
+        "tags" : [ "BFF web" ]
+      }
+    },
+    "/web/accounts/{id}/movements" : {
+      "get" : {
+        "operationId" : "movements",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "type",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 20,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MovementsPage"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Movimientos de una cuenta propia con filtros (type, status, from, to) y paginación",
+        "tags" : [ "BFF web" ]
+      }
+    },
+    "/web/dashboard" : {
+      "get" : {
+        "operationId" : "dashboard",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "movements",
+          "required" : false,
+          "schema" : {
+            "default" : 5,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Dashboard"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Tablero agregado: cliente + perfil + cuentas + últimos movimientos (consultas en paralelo)",
+        "tags" : [ "BFF web" ]
+      }
+    },
+    "/web/me" : {
+      "get" : {
+        "operationId" : "me",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Me"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Usuario de la sesión (nunca expone tokens)",
+        "tags" : [ "BFF web" ]
+      }
+    },
+    "/web/transfers" : {
+      "post" : {
+        "operationId" : "transfer",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TransferRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TransferView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Transferencia desde una cuenta propia. Idempotency-Key obligatoria; responde 202 (la saga es asíncrona)",
+        "tags" : [ "BFF web" ]
+      }
+    },
+    "/web/transfers/{paymentId}" : {
+      "get" : {
+        "operationId" : "transfer_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "paymentId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TransferView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Estado de una transferencia propia",
+        "tags" : [ "BFF web" ]
+      }
+    }
+  },
+  "servers" : [ {
+    "description" : "BFF web (desarrollo)",
+    "url" : "https://localhost:8443"
+  } ],
+  "tags" : [ {
+    "description" : "Sesión por cookie HttpOnly/Secure; datos completos y agregados",
+    "name" : "BFF web"
+  } ]
+}

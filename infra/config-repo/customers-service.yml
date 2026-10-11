@@ -1,0 +1,12 @@
+# customers-service: consumidor de eventos (accounts.lifecycle, transactions.completed, security.alerts, batch.job.events).
+# No publica eventos, por eso el outbox está desactivado (ver application.yml del servicio).
+platform:
+  outbox:
+    enabled: false      # solo consume eventos: sin tabla outbox ni publicador (el archivo específico gana al application.yml compartido)
+spring:
+  kafka:
+    listener:
+      concurrency: 3        # un hilo por partición (3): con varias réplicas el grupo reparte las particiones entre ellas
+logging:
+  level:
+    cl.bancoxyz.customers.events: INFO

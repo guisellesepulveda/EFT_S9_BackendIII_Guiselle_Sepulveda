@@ -1,0 +1,83 @@
+== 0. Datos de apoyo (cliente 'customer1' con 2 cuentas y saldo) vía gateway HTTPS con token interno
+  cliente=80fc49e9-f7c0-4020-a746-c5aac52cc99d cuentaA=a27e912a-3428-49fa-84c6-c8d6ab4145f9 cuentaB=267a41dc-c211-4829-9e0e-8d68dfce8577
+
+== 1. BFF ATM (mTLS + client_credentials atm:operate): https://localhost:8445
+  ✔ emisión simulada de tarjeta ****4907 (scope internal) → HTTP: 201
+  ✔ emisión simulada de tarjeta ****4907 (scope internal) → HTTP: 201
+  -- consultas (el PIN se valida en el servidor)
+  saldo → {"account":"****0004","balance":897499.50,"currency":"CLP","asOf":"2026-10-10T04:01:52.130912Z"}
+  ✔ saldo (el número de cuenta sale enmascarado): ****0004
+  movimientos → [{"at":"2026-10-10T04:01:49.868Z","type":"DEBIT","amount":2500.50},{"at":"2026-10-10T04:01:48.857Z","type":"CREDIT","amount":900000.00}]
+  ✔ movimientos (máx. 5): si
+  -- retiro con Idempotency-Key
+  retiro → {"status":"APPROVED","dispense":true,"amount":20000.00,"reference":"c877628e-1506-4993-8537-ec3f15daf05a","message":"Operación aprobada"}
+  ✔ retiro aprobado y dispensa solo tras confirmar: APPROVED/True
+  ✔ reintento con la MISMA clave → misma decisión (sin doble débito): igual
+  saldo de la cuenta tras el retiro y su reintento: 877499.5
+  ✔ sin Idempotency-Key → HTTP: 400
+  ✔ misma clave con otro monto → HTTP: 422
+  ✔ monto sobre el máximo por retiro (200.000) → HTTP: 422
+  ✔ supera el límite diario (500.000) → HTTP: 422
+  -- PIN
+  ✔ PIN incorrecto → HTTP: 401
+  ✔ 2.º PIN incorrecto → HTTP: 401
+  ✔ 3.er PIN incorrecto bloquea la tarjeta → HTTP: 423
+  ✔ tarjeta bloqueada incluso con el PIN correcto → HTTP: 423
+  -- SEGURIDAD POR CANAL (tokens de otros canales contra el ATM, con certificado de cajero válido)
+  ✔ token MÓVIL contra BFF ATM → HTTP: 403
+  ✔ token WEB contra BFF ATM → HTTP: 403
+  ✔ token INTERNO contra BFF ATM → HTTP: 403
+  ✔ sin token → HTTP: 401
+  -- mTLS
+  ✔ sin certificado de cliente: el handshake TLS falla (curl sale ≠ 0): falla
+  ✔ certificado firmado por OTRA CA: el handshake TLS falla: falla
+  (curl exit sin cert=56, cert ajeno=56)
+
+== 2. BFF móvil (PKCE + access token corto, scopes mobile:*): https://localhost:8444
+  cabeceras: Cache-Control: private, max-age=10 ETag: W/"0b30084b24dd507389f2a743a77bc8949" 
+  ✔ GET /mobile/home → HTTP: 200
+  ✔ ETag presente: si
+  ✔ If-None-Match → HTTP 304 sin cuerpo: 304
+  /mobile/accounts: completo=214 B, gzip=214 B, fields=number,balance → 91 B
+  ✔ fields= reduce la respuesta: si
+  ✔ campo no permitido (fields=ssn) → HTTP: 400
+  ✔ transferencia sin Idempotency-Key → HTTP: 400
+  ✔ transferencia con Idempotency-Key → HTTP: 202
+  -- SEGURIDAD POR CANAL
+  ✔ token ATM contra BFF móvil → HTTP: 403
+  ✔ token WEB contra BFF móvil → HTTP: 403
+  ✔ token INTERNO contra BFF móvil → HTTP: 403
+  ✔ sin token → HTTP: 401
+  ✔ cuenta ajena (otro cliente) → HTTP: 404
+
+== 3. BFF web (patrón BFF: sesión + cookie HttpOnly/Secure/SameSite, Authorization Code + PKCE): https://localhost:8443
+  1) el BFF redirige al auth-server con PKCE: code_challenge_method=S256
+  2) tras el login el auth-server devuelve el código al BFF: https://localhost:8443/login/oauth2/code/web-client
+  3) el BFF canjea el código (secreto del cliente solo en el servidor) y crea la sesión: Set-Cookie: BFFWEB_SESSION=162BFA93F5D0FE05CE5AB2C1C0E03094; Path=/; Secure; HttpOnly; SameSite=Lax
+  ✔ cookie de sesión HttpOnly: si
+  ✔ cookie de sesión Secure: si
+  ✔ cookie de sesión SameSite: si
+  /web/me → {"username":"customer1","roles":["CUSTOMER"],"scopes":["web:read","web:write"],"channel":"web"}
+  ✔ usuario de la sesión: customer1
+  ✔ el navegador NO recibe tokens (/web/me no los incluye): oculto
+  ✔ dashboard agregado: cliente + perfil + cuentas con movimientos: True
+  ✔ paginación y filtros /web/accounts?size=1 → HTTP: 200
+  ✔ POST sin token CSRF → HTTP: 403
+  ✔ POST con token CSRF (X-XSRF-TOKEN) → HTTP: 202
+  ✔ CORS: origen no permitido no recibe Access-Control-Allow-Origin: 0
+  -- SEGURIDAD POR CANAL
+  ✔ sin sesión → HTTP: 401
+  ✔ token MÓVIL como Bearer contra BFF web → HTTP: 401
+  ✔ token ATM como Bearer contra BFF web → HTTP: 401
+
+== 4. Alertas a security.alerts (outbox → Kafka → consumidor en customers-service)
+  ✔ alerta PIN_FAILED registrada (≥1): si
+  ✔ alerta CARD_LOCKED registrada (≥1): si
+  ✔ alerta CROSS_CHANNEL_TOKEN_REJECTED registrada (≥1): si
+  ✔ alerta DAILY_LIMIT_EXCEEDED registrada (≥1): si
+
+== 5. Comparación de payload para el MISMO dato (resumen de cuentas del cliente)
+  sin BFF (5 llamadas secuenciales, 61 ms): 3268 B | web (1 llamada, 26 ms) | web: 2373 B | móvil: 252 B (gzip 252 B, fields 91 B) | ATM: 96 B
+  tabla escrita en evidencias/local/bff_payloads.md
+
+FLUJO BFF: TODO CORRECTO

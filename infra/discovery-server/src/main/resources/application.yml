@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: discovery-server
+  security:
+    user:
+      name: ${EUREKA_USER:eureka}
+      password: ${EUREKA_PASSWORD}   # obligatoria: sin valor por defecto (ver .env.example)
+
+server:
+  port: ${SERVER_PORT:8761}
+
+eureka:
+  instance:
+    hostname: ${EUREKA_HOSTNAME:localhost}
+  client:
+    register-with-eureka: false   # es el registro, no se registra a sí mismo
+    fetch-registry: false
+  server:
+    # Demo de resiliencia/escalado: una instancia caída desaparece del registro en segundos
+    enable-self-preservation: false
+    eviction-interval-timer-in-ms: 5000
+    response-cache-update-interval-ms: 3000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

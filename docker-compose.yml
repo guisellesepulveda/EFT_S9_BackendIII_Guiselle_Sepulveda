@@ -1,0 +1,335 @@
+# Plataforma Banco XYZ — TODO corre con `docker compose up -d --build` (con COMPOSE_PROFILES=apps, que trae .env.example).
+# Perfiles:
+#   infra → PostgreSQL, Kafka (KRaft), Kafka UI, Zipkin, Prometheus y Grafana   (COMPOSE_PROFILES=infra docker compose up -d)
+#           Es lo que usa scripts/run-local.sh: las apps Spring corren en el host contra esta infraestructura.
+#   apps  → infra + config, discovery, auth, gateway, 3 microservicios, 3 BFF y batch  (todo en contenedores)
+# Escalado horizontal: los microservicios NO fijan container_name ni publican puertos (solo gateway, BFF y auth-server):
+#   docker compose up -d --scale accounts-service=3 --scale payments-service=2 --scale customers-service=2
+#   (o docker compose -f docker-compose.yml -f docker-compose.scale.yml up -d)
+# Los secretos salen de .env (scripts/init-env.sh); este archivo no contiene ninguno. Certificados: certs/generate-dev-certs.sh.
+name: banco-xyz
+
+networks:
+  bancoxyz:
+    name: bancoxyz
+
+volumes:
+  postgres-data:
+  kafka-data:
+  prometheus-data:
+  grafana-data:
+  batch-outputs:
+
+# ---- Bloques reutilizables para las apps Spring ----
+x-app: &app
+  networks: [bancoxyz]
+  profiles: [apps]
+  restart: unless-stopped
+  stop_grace_period: 30s
+  deploy:
+    resources:
+      limits:
+        memory: 512m             # el heap sale de este límite (MaxRAMPercentage=70 en la imagen)
+
+x-spring-env: &spring-env        # variables que TODA app necesita (sin secretos de negocio)
+  SPRING_PROFILES_ACTIVE: docker # config-server sirve application-docker.yml (hosts DNS de esta red, logs JSON)
+  CONFIG_SERVER_URL: http://config-server:8888
+  CONFIG_SERVER_USER: ${CONFIG_SERVER_USER}
+  CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD}
+  EUREKA_USER: ${EUREKA_USER}
+  EUREKA_PASSWORD: ${EUREKA_PASSWORD}
+
+x-tls-env: &tls-env              # gateway y BFF: HTTPS con los certificados generados por certs/generate-dev-certs.sh
+  TLS_KEYSTORE: file:/certs/server.p12
+  TLS_TRUSTSTORE: file:/certs/truststore.p12
+  KEYSTORE_PASSWORD: ${KEYSTORE_PASSWORD}
+  TRUSTSTORE_PASSWORD: ${TRUSTSTORE_PASSWORD}
+
+x-dep-core: &dep-core            # la infraestructura Spring Cloud debe estar sana antes de arrancar una app
+  config-server: {condition: service_healthy}
+  discovery-server: {condition: service_healthy}
+  auth-server: {condition: service_healthy}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    profiles: [infra, apps]
+    networks: [bancoxyz]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      CUSTOMERS_DB_PASSWORD: ${CUSTOMERS_DB_PASSWORD}
+      ACCOUNTS_DB_PASSWORD: ${ACCOUNTS_DB_PASSWORD}
+      PAYMENTS_DB_PASSWORD: ${PAYMENTS_DB_PASSWORD}
+      BATCH_DB_PASSWORD: ${BATCH_DB_PASSWORD}
+      ATM_DB_PASSWORD: ${ATM_DB_PASSWORD}
+    command: ["postgres", "-c", "max_connections=300"]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5432:5432"      # solo para desarrollo local fuera de Docker
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  kafka:
+    image: apache/kafka:3.9.1
+    profiles: [infra, apps]
+    networks: [bancoxyz]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:19092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:19092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"     # los tópicos (3 particiones + DLT) los crean los servicios
+      CLUSTER_ID: "4L6g3nShT-eMCtK--X86sw"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    ports:
+      - "127.0.0.1:9092:9092"      # listener EXTERNAL: servicios ejecutados en el host
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    profiles: [infra, apps]
+    networks: [bancoxyz]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: banco-xyz
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:19092
+      DYNAMIC_CONFIG_ENABLED: "false"
+    ports:
+      - "127.0.0.1:8089:8080"
+
+  zipkin:
+    image: openzipkin/zipkin:3.6
+    profiles: [infra, apps]
+    networks: [bancoxyz]
+    ports:
+      - "127.0.0.1:9411:9411"
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    profiles: [infra, apps]
+    networks: [bancoxyz]
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=2d", "--web.enable-lifecycle"]
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    profiles: [infra, apps]
+    networks: [bancoxyz]
+    depends_on: [prometheus]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  # =====================================================================================================
+  # Infraestructura Spring Cloud
+  # =====================================================================================================
+  config-server:
+    <<: *app
+    build: {context: ., dockerfile: infra/config-server/Dockerfile}
+    image: banco-xyz/config-server:dev
+    environment:
+      CONFIG_REPO_PATH: file:/config-repo/
+      CONFIG_SERVER_USER: ${CONFIG_SERVER_USER}
+      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD}
+    volumes:
+      - ./infra/config-repo:/config-repo:ro
+
+  discovery-server:
+    <<: *app
+    build: {context: ., dockerfile: infra/discovery-server/Dockerfile}
+    image: banco-xyz/discovery-server:dev
+    environment:
+      EUREKA_USER: ${EUREKA_USER}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD}
+      EUREKA_HOSTNAME: discovery-server
+    ports:
+      - "127.0.0.1:8761:8761"     # dashboard de Eureka (evidencia de instancias escaladas)
+
+  auth-server:
+    <<: *app
+    build: {context: ., dockerfile: infra/auth-server/Dockerfile}
+    image: banco-xyz/auth-server:dev
+    depends_on:
+      config-server: {condition: service_healthy}
+      discovery-server: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    environment:
+      <<: *spring-env
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      AUTH_ISSUER_URI: ${AUTH_ISSUER_URI}      # URL pública (la ve el navegador): http://localhost:9000
+      WEB_CLIENT_SECRET: ${WEB_CLIENT_SECRET}
+      MOBILE_CLIENT_SECRET: ${MOBILE_CLIENT_SECRET}
+      ATM_CLIENT_SECRET: ${ATM_CLIENT_SECRET}
+      INTERNAL_SERVICE_CLIENT_SECRET: ${INTERNAL_SERVICE_CLIENT_SECRET}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      BATCH_ADMIN_PASSWORD: ${BATCH_ADMIN_PASSWORD}
+    ports:
+      - "9000:9000"               # proveedor OIDC: el navegador y los clientes de los canales obtienen tokens aquí
+
+  api-gateway:
+    <<: *app
+    build: {context: ., dockerfile: infra/api-gateway/Dockerfile}
+    image: banco-xyz/api-gateway:dev
+    depends_on: *dep-core
+    environment:
+      <<: [*spring-env, *tls-env]
+    volumes:
+      - ./certs/out:/certs:ro
+    ports:
+      - "8446:8446"               # HTTPS; la gestión (18446) queda solo en la red interna
+
+  # =====================================================================================================
+  # Microservicios (database per service). SIN container_name y SIN puertos de host → escalables con --scale
+  # =====================================================================================================
+  customers-service:
+    <<: *app
+    build: {context: ., dockerfile: services/customers-service/Dockerfile}
+    image: banco-xyz/customers-service:dev
+    depends_on:
+      <<: *dep-core
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    environment:
+      <<: *spring-env
+      POSTGRES_HOST: postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      CUSTOMERS_DB_PASSWORD: ${CUSTOMERS_DB_PASSWORD}
+
+  accounts-service:
+    <<: *app
+    build: {context: ., dockerfile: services/accounts-service/Dockerfile}
+    image: banco-xyz/accounts-service:dev
+    depends_on:
+      <<: *dep-core
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    environment:
+      <<: *spring-env
+      POSTGRES_HOST: postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      ACCOUNTS_DB_PASSWORD: ${ACCOUNTS_DB_PASSWORD}
+      INTERNAL_SERVICE_CLIENT_SECRET: ${INTERNAL_SERVICE_CLIENT_SECRET}
+
+  payments-service:
+    <<: *app
+    build: {context: ., dockerfile: services/payments-service/Dockerfile}
+    image: banco-xyz/payments-service:dev
+    depends_on:
+      <<: *dep-core
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    environment:
+      <<: *spring-env
+      POSTGRES_HOST: postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      PAYMENTS_DB_PASSWORD: ${PAYMENTS_DB_PASSWORD}
+      INTERNAL_SERVICE_CLIENT_SECRET: ${INTERNAL_SERVICE_CLIENT_SECRET}
+
+  # =====================================================================================================
+  # Backend for Frontend (un despliegue por canal; son los únicos, junto al gateway, con puerto público)
+  # =====================================================================================================
+  bff-web:
+    <<: *app
+    build: {context: ., dockerfile: bff/bff-web/Dockerfile}
+    image: banco-xyz/bff-web:dev
+    depends_on: *dep-core
+    environment:
+      <<: [*spring-env, *tls-env]
+      AUTH_TOKEN_URI: http://auth-server:9000/oauth2/token      # canje del código (red interna)
+      AUTH_PUBLIC_URL: http://localhost:9000                    # autorización: la abre el NAVEGADOR
+      WEB_CLIENT_SECRET: ${WEB_CLIENT_SECRET}
+    volumes:
+      - ./certs/out:/certs:ro
+    ports:
+      - "8443:8443"
+
+  bff-mobile:
+    <<: *app
+    build: {context: ., dockerfile: bff/bff-mobile/Dockerfile}
+    image: banco-xyz/bff-mobile:dev
+    depends_on: *dep-core
+    environment:
+      <<: [*spring-env, *tls-env]
+      AUTH_TOKEN_URI: http://auth-server:9000/oauth2/token
+      MOBILE_CLIENT_SECRET: ${MOBILE_CLIENT_SECRET}
+    volumes:
+      - ./certs/out:/certs:ro
+    ports:
+      - "8444:8444"
+
+  bff-atm:
+    <<: *app
+    build: {context: ., dockerfile: bff/bff-atm/Dockerfile}
+    image: banco-xyz/bff-atm:dev
+    depends_on:
+      <<: *dep-core
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    environment:
+      <<: [*spring-env, *tls-env]
+      POSTGRES_HOST: postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      ATM_DB_PASSWORD: ${ATM_DB_PASSWORD}
+    volumes:
+      - ./certs/out:/certs:ro
+    ports:
+      - "8445:8445"               # HTTPS con mTLS obligatorio (client-auth: need)
+
+  # =====================================================================================================
+  # Batch (Spring Batch). Lee los CSV legacy montados en solo lectura y escribe reportes en un volumen
+  # =====================================================================================================
+  batch-service:
+    <<: *app
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+    build: {context: ., dockerfile: batch/batch-service/Dockerfile}
+    image: banco-xyz/batch-service:dev
+    depends_on:
+      <<: *dep-core
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    environment:
+      <<: *spring-env
+      POSTGRES_HOST: postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      BATCH_DB_PASSWORD: ${BATCH_DB_PASSWORD}
+      BATCH_OUTPUT_DIR: /app/outputs
+    volumes:
+      - ./data/legacy:/app/data/legacy:ro
+      - batch-outputs:/app/outputs

@@ -1,0 +1,70 @@
+# Configuración COMPARTIDA por todos los servicios (la sirve el Config Server).
+# Los ${...} los resuelve cada cliente con sus variables de entorno (ver .env.example); nunca hay secretos aquí.
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://${EUREKA_USER:eureka}:${EUREKA_PASSWORD}@localhost:8761/eureka/}
+    registry-fetch-interval-seconds: 5
+  instance:
+    prefer-ip-address: true
+    # HOSTNAME = id del contenedor en Docker → cada réplica escalada con --scale tiene un instance-id distinto
+    instance-id: ${spring.application.name}:${HOSTNAME:${random.uuid}}:${server.port}
+    lease-renewal-interval-in-seconds: 5
+    lease-expiration-duration-in-seconds: 15   # una instancia caída sale del registro en ~15 s
+
+spring:
+  cloud:
+    loadbalancer:
+      cache:
+        ttl: 5s                  # la lista de instancias se refresca cada 5 s (defecto 35 s): una réplica caída sale del balanceo rápido
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    listener:
+      ack-mode: record
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Solo jwk-set-uri (no issuer-uri): el emisor visto desde el navegador y desde la red Docker difiere
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:9000/oauth2/jwks}
+
+platform:
+  postgres-host: localhost
+  kafka:
+    max-retries: 3
+    initial-backoff: 500ms
+    multiplier: 2.0
+    max-backoff: 5s
+  outbox:
+    enabled: true
+    poll-interval: 500ms
+    batch-size: 50
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,circuitbreakers,circuitbreakerevents,retries,retryevents,bulkheads,timelimiters
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0            # 100 % de las trazas para la demo; en producción bajar (p. ej. 0.1)
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

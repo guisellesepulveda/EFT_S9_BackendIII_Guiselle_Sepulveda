@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: bff-web
+  profiles:
+    default: local
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+  cloud:
+    config:
+      username: ${CONFIG_SERVER_USER:config}
+      password: ${CONFIG_SERVER_PASSWORD:}
+      fail-fast: false
+
+platform:
+  kafka:
+    topics-enabled: false      # el BFF no usa Kafka
+  client:
+    internal-token:
+      enabled: false           # llama a los servicios con el token del usuario, no con el interno
+
+server:
+  port: ${SERVER_PORT:8443}

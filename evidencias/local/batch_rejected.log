@@ -1,0 +1,64 @@
+$ psql -U batch -d batchdb  -- registros rechazados por job y motivo (nada se pierde en silencio)
+         job_name          | disposition | count 
+---------------------------+-------------+-------
+ annualStatementJob        | SKIPPED     |  2310
+ dailyTransactionReportJob | SKIPPED     |  2373
+ monthlyInterestJob        | FILTERED    |     6
+ monthlyInterestJob        | SKIPPED     |  1467
+(4 rows)
+
+         job_name          |                                  reason_code                                  | count 
+---------------------------+-------------------------------------------------------------------------------+-------
+ annualStatementJob        | INVALID_DATE                                                                  |   714
+ annualStatementJob        | NON_POSITIVE_AMOUNT                                                           |   426
+ annualStatementJob        | INVALID_DATE;NON_POSITIVE_AMOUNT                                              |   381
+ annualStatementJob        | INVALID_DATE;MISSING_DESCRIPTION                                              |   159
+ annualStatementJob        | MISSING_DESCRIPTION                                                           |   147
+ annualStatementJob        | NON_POSITIVE_AMOUNT;MISSING_DESCRIPTION                                       |   114
+ annualStatementJob        | INVALID_DATE;NON_POSITIVE_AMOUNT;MISSING_DESCRIPTION                          |    72
+ annualStatementJob        | INVALID_DATE;MISSING_AMOUNT                                                   |    60
+ annualStatementJob        | MISSING_AMOUNT                                                                |    51
+ annualStatementJob        | INVALID_DATE;INVALID_TRANSACTION_TYPE                                         |    48
+ annualStatementJob        | INVALID_TRANSACTION_TYPE                                                      |    39
+ annualStatementJob        | INVALID_DATE;MISSING_AMOUNT;MISSING_DESCRIPTION                               |    21
+ annualStatementJob        | INVALID_DATE;INVALID_TRANSACTION_TYPE;NON_POSITIVE_AMOUNT                     |    21
+ annualStatementJob        | INVALID_TRANSACTION_TYPE;NON_POSITIVE_AMOUNT                                  |    18
+ annualStatementJob        | MISSING_AMOUNT;MISSING_DESCRIPTION                                            |    12
+ annualStatementJob        | INVALID_DATE;INVALID_TRANSACTION_TYPE;NON_POSITIVE_AMOUNT;MISSING_DESCRIPTION |     9
+ annualStatementJob        | INVALID_DATE;INVALID_TRANSACTION_TYPE;MISSING_DESCRIPTION                     |     9
+ annualStatementJob        | INVALID_TRANSACTION_TYPE;MISSING_DESCRIPTION                                  |     6
+ annualStatementJob        | INVALID_TRANSACTION_TYPE;NON_POSITIVE_AMOUNT;MISSING_DESCRIPTION              |     3
+ dailyTransactionReportJob | INVALID_DATE                                                                  |   636
+ dailyTransactionReportJob | UNKNOWN_TYPE                                                                  |   405
+ dailyTransactionReportJob | INVALID_DATE;UNKNOWN_TYPE                                                     |   393
+ dailyTransactionReportJob | INVALID_DATE;MISSING_AMOUNT                                                   |   177
+ dailyTransactionReportJob | NON_POSITIVE_AMOUNT                                                           |   147
+ dailyTransactionReportJob | MISSING_AMOUNT                                                                |   141
+ dailyTransactionReportJob | INVALID_DATE;NON_POSITIVE_AMOUNT                                              |   123
+ dailyTransactionReportJob | MISSING_AMOUNT;UNKNOWN_TYPE                                                   |   105
+ dailyTransactionReportJob | INVALID_DATE;NON_POSITIVE_AMOUNT;UNKNOWN_TYPE                                 |    93
+ dailyTransactionReportJob | INVALID_DATE;MISSING_AMOUNT;UNKNOWN_TYPE                                      |    81
+ dailyTransactionReportJob | NON_POSITIVE_AMOUNT;UNKNOWN_TYPE                                              |    72
+ monthlyInterestJob        | INVALID_ACCOUNT_TYPE                                                          |   729
+ monthlyInterestJob        | MISSING_BALANCE                                                               |   393
+ monthlyInterestJob        | MISSING_BALANCE;INVALID_ACCOUNT_TYPE                                          |   207
+ monthlyInterestJob        | AGE_OUT_OF_RANGE                                                              |    90
+ monthlyInterestJob        | AGE_OUT_OF_RANGE;INVALID_ACCOUNT_TYPE                                         |    36
+ monthlyInterestJob        | MISSING_BALANCE;AGE_OUT_OF_RANGE                                              |     9
+ monthlyInterestJob        | DUPLICATE_RECORD                                                              |     6
+ monthlyInterestJob        | MISSING_BALANCE;AGE_OUT_OF_RANGE;INVALID_ACCOUNT_TYPE                         |     3
+(38 rows)
+
+$ psql -U batch -d batchdb  -- primeras líneas rechazadas del job diario (línea, motivo y contenido crudo)
+ line_number | disposition |           reason_code            |        raw_content         
+-------------+-------------+----------------------------------+----------------------------
+           2 | SKIPPED     | UNKNOWN_TYPE                     | 1,2024/03/05,1500,invalido
+           2 | SKIPPED     | UNKNOWN_TYPE                     | 1,2024/03/05,1500,invalido
+           2 | SKIPPED     | UNKNOWN_TYPE                     | 1,2024/03/05,1500,invalido
+           3 | SKIPPED     | INVALID_DATE                     | 2,11-12-2024,1000,credito
+           3 | SKIPPED     | INVALID_DATE                     | 2,11-12-2024,1000,credito
+           3 | SKIPPED     | INVALID_DATE                     | 2,11-12-2024,1000,credito
+           4 | SKIPPED     | INVALID_DATE;NON_POSITIVE_AMOUNT | 3,02/04/2024,-200,debito
+           4 | SKIPPED     | INVALID_DATE;NON_POSITIVE_AMOUNT | 3,02/04/2024,-200,debito
+(8 rows)
+

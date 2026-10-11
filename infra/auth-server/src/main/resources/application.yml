@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: auth-server
+  profiles:
+    default: local
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+  cloud:
+    config:
+      username: ${CONFIG_SERVER_USER:config}
+      password: ${CONFIG_SERVER_PASSWORD:}
+      fail-fast: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+server:
+  port: ${SERVER_PORT:9000}
+
+auth:
+  issuer: ${AUTH_ISSUER_URI:http://localhost:9000}
+  clients:
+    web:
+      secret: ${WEB_CLIENT_SECRET}
+      redirect-uris: ${WEB_REDIRECT_URIS:https://localhost:8443/login/oauth2/code/web-client}
+      access-token-ttl: 10m
+      refresh-token-ttl: 8h
+    mobile:
+      secret: ${MOBILE_CLIENT_SECRET}
+      redirect-uris: ${MOBILE_REDIRECT_URIS:bancoxyz://callback,https://localhost:8444/login/oauth2/code/mobile-client}
+      access-token-ttl: 5m          # token de acceso corto; la sesión se renueva con refresh token rotado
+      refresh-token-ttl: 30d
+    atm:
+      secret: ${ATM_CLIENT_SECRET}
+      access-token-ttl: 5m
+    internal:
+      secret: ${INTERNAL_SERVICE_CLIENT_SECRET}
+      access-token-ttl: 5m
+  users:
+    customer-password: ${DEMO_USER_PASSWORD}
+    admin-password: ${ADMIN_PASSWORD}
+    batch-admin-password: ${BATCH_ADMIN_PASSWORD}
+  alerts:
+    high-severity-threshold: 5
+    window: 5m
+
+platform:
+  security:
+    enabled: false        # el auth-server define sus propias cadenas de seguridad
+  outbox:
+    enabled: false        # sin base de datos
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}

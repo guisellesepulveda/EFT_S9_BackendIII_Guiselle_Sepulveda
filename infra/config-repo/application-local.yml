@@ -1,0 +1,10 @@
+# Perfil local: servicios ejecutados fuera de Docker contra la infraestructura publicada en localhost.
+spring:
+  config:
+    activate:
+      on-profile: local
+platform:
+  postgres-host: localhost
+logging:
+  level:
+    cl.bancoxyz: DEBUG

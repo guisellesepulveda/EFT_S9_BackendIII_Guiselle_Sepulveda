@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: payments-service
+  profiles:
+    default: local
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+  cloud:
+    config:
+      username: ${CONFIG_SERVER_USER:config}
+      password: ${CONFIG_SERVER_PASSWORD:}
+      fail-fast: false
+  datasource:
+    url: jdbc:postgresql://${platform.postgres-host:localhost}:${POSTGRES_PORT:5432}/${PAYMENTS_DB_NAME:paymentsdb}
+    username: ${PAYMENTS_DB_USER:payments}
+    password: ${PAYMENTS_DB_PASSWORD:}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:9000/oauth2/jwks}
+
+server:
+  port: ${SERVER_PORT:8083}
+
+platform:
+  postgres-host: ${POSTGRES_HOST:localhost}
+
+payments:
+  pending-retry-after: 30s
+  max-request-attempts: 5
+  retrier-interval: 10s
+  customer-cache-ttl: 10m

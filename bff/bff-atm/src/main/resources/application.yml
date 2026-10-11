@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: bff-atm
+  profiles:
+    default: local
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+  cloud:
+    config:
+      username: ${CONFIG_SERVER_USER:config}
+      password: ${CONFIG_SERVER_PASSWORD:}
+      fail-fast: false
+  datasource:
+    url: jdbc:postgresql://${platform.postgres-host:localhost}:${POSTGRES_PORT:5432}/${ATM_DB_NAME:atmdb}
+    username: ${ATM_DB_USER:atm}
+    password: ${ATM_DB_PASSWORD:}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:9000/oauth2/jwks}
+
+platform:
+  kafka:
+    topics-enabled: false
+  client:
+    internal-token:
+      enabled: false
+
+server:
+  port: ${SERVER_PORT:8445}

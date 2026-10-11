@@ -1,0 +1,180 @@
+SMOKE TEST Banco XYZ — 2026-10-10 17:10:34 — destino: local (gateway https://localhost:8446)
+
+################ 0. Estado de los contenedores ################
+NAME                            STATUS
+banco-xyz-accounts-service-1    Up 2 minutes (healthy)
+banco-xyz-accounts-service-2    Up 42 seconds (healthy)
+banco-xyz-accounts-service-3    Up 43 seconds (healthy)
+banco-xyz-api-gateway-1         Up 2 minutes (healthy)
+banco-xyz-auth-server-1         Up 3 minutes (healthy)
+banco-xyz-batch-service-1       Up 2 minutes (healthy)
+banco-xyz-bff-atm-1             Up 2 minutes (healthy)
+banco-xyz-bff-mobile-1          Up 2 minutes (healthy)
+banco-xyz-bff-web-1             Up 2 minutes (healthy)
+banco-xyz-config-server-1       Up 3 minutes (healthy)
+banco-xyz-customers-service-1   Up 2 minutes (healthy)
+banco-xyz-customers-service-2   Up 43 seconds (healthy)
+banco-xyz-discovery-server-1    Up 3 minutes (healthy)
+banco-xyz-grafana-1             Up 3 minutes
+banco-xyz-kafka-1               Up 3 minutes (healthy)
+banco-xyz-kafka-ui-1            Up 3 minutes
+banco-xyz-payments-service-1    Up 2 minutes (healthy)
+banco-xyz-payments-service-2    Up 43 seconds (healthy)
+banco-xyz-postgres-1            Up 3 minutes (healthy)
+banco-xyz-prometheus-1          Up 3 minutes
+banco-xyz-zipkin-1              Up 3 minutes (healthy)
+
+################ 1. Tokens por canal (auth-server: Authorization Code + PKCE para web/móvil, client_credentials para ATM e interno) ################
+  ✔ token internal → scopes: internal
+  ✔ token atm → scopes: atm:operate
+  ✔ token web (customer1) → scopes: openid web:write web:read
+  ✔ token mobile (customer1) → scopes: openid mobile:read mobile:transfer
+
+################ 2. Flujo de negocio por el gateway: cliente → cuentas → depósito → transferencia → reglas → seguridad → eventos ################
+== Tokens (Authorization Code + PKCE contra el auth-server)
+  token web de customer1 y de admin obtenidos
+== 1. Cliente
+  ✔ POST /customers → HTTP: 201
+== 2. Cuentas (accounts-service verifica al cliente en customers-service: Eureka + Feign + Resilience4j)
+  ✔ cuenta A → HTTP: 201
+  ✔ cuenta B → HTTP: 201
+  ✔ cuenta C → HTTP: 201
+  ✔ cerrar C (saldo 0) → HTTP: 200
+== 3. Depósito de 10000 en A (saga asíncrona: requested → credited → completed)
+  ✔ HTTP: 202
+  ✔ estado final del depósito: COMPLETED
+  ✔ idempotencia: misma Idempotency-Key → HTTP 200 y el mismo pago: 200/mismo
+== 4. Transferencia A → B de 2500.50
+  ✔ HTTP: 202
+  ✔ estado final de la transferencia: COMPLETED
+  ✔ saldo A: 7499.50
+  ✔ saldo B: 2500.50
+  historial del pago: ["PENDING","DEBITED","COMPLETED"]
+== 5. Reglas de negocio
+  ✔ retiro sin fondos → HTTP: 422
+  ✔ transferencia a la misma cuenta → HTTP: 422
+  ✔ transferencia a cuenta cerrada → HTTP: 422
+== 6. Seguridad
+  ✔ sin token → HTTP: 401
+  ✔ token de cliente (sin ROLE_ADMIN) en endpoint admin → HTTP: 403
+  ✔ token con ROLE_ADMIN en endpoint admin → HTTP: 200
+  ✔ un canal NO puede debitar directamente (solo scope internal) → HTTP: 403
+== 7. Consistencia eventual (accounts.lifecycle → perfil del cliente) y proyecciones
+  ✔ cuentas abiertas en el perfil (3 abiertas − 1 cerrada): 2
+  movimientos de A: [{"op_type":"DEBIT","amount":2500.50,"movement_status":"CONFIRMED"},{"op_type":"CREDIT","amount":10000.00,"movement_status":"CONFIRMED"}]
+  notificaciones (transactions.completed → customers): ["Transacción TRANSFER por 2500.50 CLP completada","Transacción DEPOSIT por 10000.00 CLP completada"]
+== 8. Trazabilidad
+  ✔ X-Trace-Id presente: si
+  traceId=6aca9bc1d8ad66c893ef9037b6657e52  (Zipkin, local o por túnel SSH: http://localhost:9411/zipkin/traces/6aca9bc1d8ad66c893ef9037b6657e52)
+
+FLUJO E2E: TODO CORRECTO
+
+################ 3. Los tres BFF: web (sesión+cookie), móvil (PKCE+ETag/gzip), ATM (mTLS+Idempotency-Key) y rechazo entre canales ################
+== 0. Datos de apoyo (cliente 'customer1' con 2 cuentas y saldo) vía gateway HTTPS con token interno
+  cliente=575d60e0-6385-4d00-b726-37a8ed90e475 cuentaA=c0adc156-f7eb-4fad-9d9a-f68b6b6d3b2e cuentaB=0617bfcc-a160-4223-95de-748f1aeb6a39
+
+== 1. BFF ATM (mTLS + client_credentials atm:operate): https://localhost:8445
+  ✔ emisión simulada de tarjeta ****3041 (scope internal) → HTTP: 201
+  ✔ emisión simulada de tarjeta ****3041 (scope internal) → HTTP: 201
+  -- consultas (el PIN se valida en el servidor)
+  saldo → {"account":"****0005","balance":1377499.50,"currency":"CLP","asOf":"2026-10-10T20:10:45.622745Z"}
+  ✔ saldo (el número de cuenta sale enmascarado): ****0005
+  movimientos → [{"at":"2026-10-10T20:10:43.467Z","type":"DEBIT","amount":2500.50},{"at":"2026-10-10T20:10:42.451Z","type":"CREDIT","amount":900000.00},{"at":"2026-10-10T20:09:33.224Z","type":"DEBIT","amount":500.00},{"at":"2026-10-10T20:09:32.219Z","type":"DEBIT","amount":1000.00},{"at":"2026-10-10T20:09:30.705Z","type":"DEBIT","amount":200000.00}]
+  ✔ movimientos (máx. 5): si
+  -- retiro con Idempotency-Key
+  retiro → {"status":"APPROVED","dispense":true,"amount":20000.00,"reference":"7327cb5e-2395-4ede-a5ca-e6472e69a2ee","message":"Operación aprobada"}
+  ✔ retiro aprobado y dispensa solo tras confirmar: APPROVED/True
+  ✔ reintento con la MISMA clave → misma decisión (sin doble débito): igual
+  saldo de la cuenta tras el retiro y su reintento: 1357499.5
+  ✔ sin Idempotency-Key → HTTP: 400
+  ✔ misma clave con otro monto → HTTP: 422
+  ✔ monto sobre el máximo por retiro (200.000) → HTTP: 422
+  ✔ supera el límite diario (500.000) → HTTP: 422
+  -- PIN
+  ✔ PIN incorrecto → HTTP: 401
+  ✔ 2.º PIN incorrecto → HTTP: 401
+  ✔ 3.er PIN incorrecto bloquea la tarjeta → HTTP: 423
+  ✔ tarjeta bloqueada incluso con el PIN correcto → HTTP: 423
+  -- SEGURIDAD POR CANAL (tokens de otros canales contra el ATM, con certificado de cajero válido)
+  ✔ token MÓVIL contra BFF ATM → HTTP: 403
+  ✔ token WEB contra BFF ATM → HTTP: 403
+  ✔ token INTERNO contra BFF ATM → HTTP: 403
+  ✔ sin token → HTTP: 401
+  -- mTLS
+  ✔ sin certificado de cliente: el handshake TLS falla (curl sale ≠ 0): falla
+  ✔ certificado firmado por OTRA CA: el handshake TLS falla: falla
+  (curl exit sin cert=56, cert ajeno=56)
+
+== 2. BFF móvil (PKCE + access token corto, scopes mobile:*): https://localhost:8444
+  cabeceras: Cache-Control: private, max-age=10 ETag: W/"0456184b46f76f8277db607909ec33359" 
+  ✔ GET /mobile/home → HTTP: 200
+  ✔ ETag presente: si
+  ✔ If-None-Match → HTTP 304 sin cuerpo: 304
+  /mobile/accounts: completo=216 B, gzip=216 B, fields=number,balance → 93 B
+  ✔ fields= reduce la respuesta: si
+  ✔ campo no permitido (fields=ssn) → HTTP: 400
+  ✔ transferencia sin Idempotency-Key → HTTP: 400
+  ✔ transferencia con Idempotency-Key → HTTP: 202
+  -- SEGURIDAD POR CANAL
+  ✔ token ATM contra BFF móvil → HTTP: 403
+  ✔ token WEB contra BFF móvil → HTTP: 403
+  ✔ token INTERNO contra BFF móvil → HTTP: 403
+  ✔ sin token → HTTP: 401
+  ✔ cuenta ajena (otro cliente) → HTTP: 404
+
+== 3. BFF web (patrón BFF: sesión + cookie HttpOnly/Secure/SameSite, Authorization Code + PKCE): https://localhost:8443
+  1) el BFF redirige al auth-server con PKCE: code_challenge_method=S256
+  2) tras el login el auth-server devuelve el código al BFF: https://localhost:8443/login/oauth2/code/web-client
+  3) el BFF canjea el código (secreto del cliente solo en el servidor) y crea la sesión: Set-Cookie: BFFWEB_SESSION=011303461B99EBE8BEFBD41B36755A74; Path=/; Secure; HttpOnly; SameSite=Lax
+  ✔ cookie de sesión HttpOnly: si
+  ✔ cookie de sesión Secure: si
+  ✔ cookie de sesión SameSite: si
+  /web/me → {"username":"customer1","roles":["CUSTOMER"],"scopes":["web:read","web:write"],"channel":"web"}
+  ✔ usuario de la sesión: customer1
+  ✔ el navegador NO recibe tokens (/web/me no los incluye): oculto
+  ✔ dashboard agregado: cliente + perfil + cuentas con movimientos: True
+  ✔ paginación y filtros /web/accounts?size=1 → HTTP: 200
+  ✔ POST sin token CSRF → HTTP: 403
+  ✔ POST con token CSRF (X-XSRF-TOKEN) → HTTP: 202
+  ✔ CORS: origen no permitido no recibe Access-Control-Allow-Origin: 0
+  -- SEGURIDAD POR CANAL
+  ✔ sin sesión → HTTP: 401
+  ✔ token MÓVIL como Bearer contra BFF web → HTTP: 401
+  ✔ token ATM como Bearer contra BFF web → HTTP: 401
+
+== 4. Alertas a security.alerts (outbox → Kafka → consumidor en customers-service)
+  ✔ alerta PIN_FAILED registrada (≥1): si
+  ✔ alerta CARD_LOCKED registrada (≥1): si
+  ✔ alerta CROSS_CHANNEL_TOKEN_REJECTED registrada (≥1): si
+  ✔ alerta DAILY_LIMIT_EXCEEDED registrada (≥1): si
+
+== 5. Comparación de payload para el MISMO dato (resumen de cuentas del cliente)
+  sin BFF (5 llamadas secuenciales, 88 ms): 3857 B | web (1 llamada, 37 ms) | web: 2792 B | móvil: 255 B (gzip 255 B, fields 93 B) | ATM: 99 B
+
+FLUJO BFF: TODO CORRECTO
+
+################ 4. Los tres jobs batch lanzados por el gateway (rol BATCH_ADMIN) sobre los CSV legacy ################
+  ✔ dailyTransactionReportJob (ejecución 7): COMPLETED
+      validateFileStep           COMPLETED leídos=0     escritos=0     omitidos=0    filtrados=0
+      loadMovementsStep          COMPLETED leídos=1000  escritos=209   omitidos=791  filtrados=0
+      summarizeStep              COMPLETED leídos=185   escritos=185   omitidos=0    filtrados=0
+      exportReportStep           COMPLETED leídos=185   escritos=185   omitidos=0    filtrados=0
+      executionReportStep        COMPLETED leídos=0     escritos=0     omitidos=0    filtrados=0
+      registros rechazados/filtrados persistidos en batch_rejected_record: 791
+  ✔ monthlyInterestJob (ejecución 8): COMPLETED
+      validateFileStep           COMPLETED leídos=0     escritos=0     omitidos=0    filtrados=0
+      calculateInterestStep      COMPLETED leídos=1000  escritos=509   omitidos=489  filtrados=2
+      updateBalancesStep         COMPLETED leídos=50    escritos=50    omitidos=0    filtrados=0
+      executionReportStep        COMPLETED leídos=0     escritos=0     omitidos=0    filtrados=0
+      registros rechazados/filtrados persistidos en batch_rejected_record: 491
+  ✔ annualStatementJob (ejecución 9): COMPLETED
+      validateFileStep           COMPLETED leídos=0     escritos=0     omitidos=0    filtrados=0
+      loadTransactionsStep       COMPLETED leídos=1000  escritos=230   omitidos=770  filtrados=0
+      consolidateStep            COMPLETED leídos=20    escritos=20    omitidos=0    filtrados=0
+      exportAccountFilesStep     COMPLETED leídos=20    escritos=20    omitidos=0    filtrados=0
+      executionReportStep        COMPLETED leídos=0     escritos=0     omitidos=0    filtrados=0
+      registros rechazados/filtrados persistidos en batch_rejected_record: 770
+  sin token → HTTP 401
+  token de cliente (sin BATCH_ADMIN) → HTTP 403
+
+SMOKE TEST: TODO CORRECTO

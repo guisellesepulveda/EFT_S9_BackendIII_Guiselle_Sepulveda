@@ -1,0 +1,44 @@
+%% Transferencia con saga coreografiada + Transactional Outbox + Kafka (ADR-005)
+sequenceDiagram
+  autonumber
+  actor C as Cliente
+  participant GW as api-gateway
+  participant P as payments-service
+  participant PDB as paymentsdb
+  participant K as Kafka
+  participant A as accounts-service
+  participant ADB as accountsdb
+  participant U as customers-service
+
+  C->>GW: POST /api/payments/transfer + Idempotency-Key + JWT
+  GW->>P: lb:// payments-service (traceparent)
+  P->>U: validar cliente (Feign · CircuitBreaker · caché)
+  P->>PDB: TX: payment PENDING + outbox transactions.requested
+  P-->>C: 202 PENDING
+  Note over P,PDB: publicador del outbox (FOR UPDATE SKIP LOCKED)
+  P->>K: transactions.requested (clave = paymentId)
+  K->>A: SagaConsumers
+  A->>ADB: TX: DÉBITO origen (UPDATE condicional balance >= monto) + processed_event + outbox
+  alt saldo insuficiente o cuenta cerrada
+    A->>K: transactions.failed
+    K->>P: payment FAILED
+  else débito correcto
+    A->>K: transactions.debited
+    K->>A: SagaConsumers (crédito)
+    A->>ADB: TX: CRÉDITO destino (operationId paymentId:CREDIT) + outbox
+    A->>K: transactions.credited
+    K->>P: PaymentConsumers
+    P->>PDB: TX: payment COMPLETED + outbox transactions.completed
+    P->>K: transactions.completed
+    K->>A: proyección: confirma movimientos
+    K->>U: notificación al cliente
+  end
+  opt falla el crédito tras el débito
+    A->>K: transactions.failed
+    K->>P: COMPENSATING
+    P->>A: reembolso idempotente (paymentId:REFUND · scope internal)
+    P->>PDB: COMPENSATED
+  end
+  C->>GW: GET /api/payments/{id}
+  GW-->>C: COMPLETED (historial PENDING → DEBITED → COMPLETED)
+  Note over K: consumidores idempotentes (processed_event) · errores → backoff → tópico .DLT

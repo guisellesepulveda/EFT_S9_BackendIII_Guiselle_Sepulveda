@@ -1,0 +1,101 @@
+$ mvn verify   (condensado: pruebas por clase, totales por módulo y resumen del reactor)
+Building Banco XYZ - Modernización Backend 1.0.0-SNAPSHOT         [1/14]
+Building platform-common 1.0.0-SNAPSHOT                           [2/14]
+Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.platform.PlatformJwtConverterTest
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.platform.EventCodecTest
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.platform.OutboxAndIdempotencyIT
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0
+Building bff-common 1.0.0-SNAPSHOT                                [3/14]
+Building config-server 1.0.0-SNAPSHOT                             [4/14]
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.config.ConfigServerIT
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0
+Building discovery-server 1.0.0-SNAPSHOT                          [5/14]
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.discovery.DiscoveryServerIT
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0
+Building api-gateway 1.0.0-SNAPSHOT                               [6/14]
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.gateway.GatewayRetryDeadReplicasIT
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.gateway.GatewayTlsIT
+Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.gateway.GatewayIT
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.gateway.GatewayRetryIT
+Tests run: 16, Failures: 0, Errors: 0, Skipped: 0
+Building auth-server 1.0.0-SNAPSHOT                               [7/14]
+Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.auth.AuthServerIT
+Tests run: 12, Failures: 0, Errors: 0, Skipped: 0
+Building customers-service 1.0.0-SNAPSHOT                         [8/14]
+Tests run: 0, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 13, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.customers.CustomerApiIT
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.customers.CustomerEventsIT
+Tests run: 20, Failures: 0, Errors: 0, Skipped: 0
+Building accounts-service 1.0.0-SNAPSHOT                          [9/14]
+Tests run: 0, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.accounts.CustomersResilienceIT
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.accounts.LedgerConcurrencyIT
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.accounts.SagaIT
+Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.accounts.AccountApiIT
+Tests run: 27, Failures: 0, Errors: 0, Skipped: 0
+Building payments-service 1.0.0-SNAPSHOT                         [10/14]
+Tests run: 0, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.payments.PaymentRetrierIT
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.payments.PaymentsSagaIT
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.payments.PaymentsBulkheadIT
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.payments.PaymentsResilienceIT
+Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.payments.PaymentApiIT
+Tests run: 26, Failures: 0, Errors: 0, Skipped: 0
+Building bff-web 1.0.0-SNAPSHOT                                  [11/14]
+Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.bffweb.WebSecurityIT
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.bffweb.OpenApiContractIT
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.bffweb.WebCsrfCookieIT
+Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.bffweb.WebApiIT
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.bffweb.WebTlsIT
+Tests run: 28, Failures: 0, Errors: 0, Skipped: 0
+Building bff-mobile 1.0.0-SNAPSHOT                               [12/14]
+Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.bffmobile.MobileApiIT
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.bffmobile.OpenApiContractIT
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.bffmobile.MobileTransportIT
+Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.bffmobile.MobileRateLimitIT
+Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.bffmobile.MobileSecurityIT
+Tests run: 24, Failures: 0, Errors: 0, Skipped: 0
+Building bff-atm 1.0.0-SNAPSHOT                                  [13/14]
+Tests run: 0, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.bffatm.OpenApiContractIT
+Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.bffatm.AtmSecurityIT
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.bffatm.AtmMtlsIT
+Tests run: 19, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.bffatm.AtmApiIT
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.bffatm.AtmRevokedCertIT
+Tests run: 33, Failures: 0, Errors: 0, Skipped: 0
+Building batch-service 1.0.0-SNAPSHOT                            [14/14]
+Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.batch.common.DateNormalizerTest
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.batch.common.FileValidationTaskletTest
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.batch.common.SimulatedFailureWriterTest
+Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.batch.job.MovementProcessorTest
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.batch.job.AnnualTransactionProcessorTest
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.batch.job.LineRangePartitionerTest
+Tests run: 16, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.batch.job.InterestTest
+Tests run: 48, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.batch.AutoRetryKafkaIT
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.batch.RetryAndValidationIT
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.batch.EquivalenceSequentialIT
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.batch.BatchApiSecurityIT
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.batch.RestartIT
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.batch.SkipLimitIT
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.batch.EquivalenceIT
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 1, in cl.bancoxyz.batch.BatchBenchmarkIT
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, in cl.bancoxyz.batch.EquivalenceWideIT
+Tests run: 30, Failures: 0, Errors: 0, Skipped: 1
+Reactor Summary for Banco XYZ - Modernización Backend 1.0.0-SNAPSHOT:
+Banco XYZ - Modernización Backend .................. SUCCESS
+platform-common .................................... SUCCESS
+bff-common ......................................... SUCCESS
+config-server ...................................... SUCCESS
+discovery-server ................................... SUCCESS
+api-gateway ........................................ SUCCESS
+auth-server ........................................ SUCCESS
+customers-service .................................. SUCCESS
+accounts-service ................................... SUCCESS
+payments-service ................................... SUCCESS
+bff-web ............................................ SUCCESS
+bff-mobile ......................................... SUCCESS
+bff-atm ............................................ SUCCESS
+batch-service ...................................... SUCCESS
+BUILD SUCCESS

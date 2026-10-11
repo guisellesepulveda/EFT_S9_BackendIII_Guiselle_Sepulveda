@@ -1,0 +1,49 @@
+%% Casos de uso por actor (Mermaid no tiene diagrama UML de casos de uso: se representa con actores y óvalos)
+flowchart LR
+  CW(["Cliente web"])
+  CM(["Cliente móvil"])
+  UA(["Usuario de cajero"])
+  OB(["Operador batch"])
+  AU(["Auditor"])
+
+  subgraph WEB["Canal web · bff-web"]
+    W1(["Iniciar sesión con PKCE"])
+    W2(["Ver dashboard: cliente, cuentas y movimientos"])
+    W3(["Filtrar y paginar cuentas y movimientos"])
+    W4(["Transferir entre cuentas"])
+  end
+  subgraph MOV["Canal móvil · bff-mobile"]
+    M1(["Iniciar sesión y renovar token"])
+    M2(["Ver resumen y saldo total"])
+    M3(["Consultar movimientos recientes"])
+    M4(["Transferir con Idempotency-Key"])
+  end
+  subgraph CAJ["Canal cajero · bff-atm"]
+    A1(["Consultar saldo"])
+    A2(["Ver los últimos 5 movimientos"])
+    A3(["Retirar efectivo"])
+    A4(["Validar PIN · bloqueo tras 3 intentos"])
+  end
+  subgraph OPS["Operación batch · batch-service"]
+    B1(["Lanzar reporte diario de transacciones"])
+    B2(["Lanzar cálculo de intereses mensual"])
+    B3(["Lanzar estados financieros anuales"])
+    B4(["Revisar rechazados y reiniciar un job fallido"])
+  end
+  subgraph AUD["Auditoría y seguridad"]
+    U1(["Consultar alertas de seguridad"])
+    U2(["Revisar auditoría de operaciones del cajero"])
+    U3(["Revisar archivos por cuenta de los estados anuales"])
+    U4(["Ver trazas y métricas"])
+  end
+
+  CW --- W1 & W2 & W3 & W4
+  CM --- M1 & M2 & M3 & M4
+  UA --- A1 & A2 & A3
+  A3 -. "incluye" .-> A4
+  A1 -. "incluye" .-> A4
+  OB --- B1 & B2 & B3 & B4
+  AU --- U1 & U2 & U3 & U4
+  W4 -. "dispara" .-> SAGA(["Saga de transferencia · outbox · Kafka"])
+  M4 -. "dispara" .-> SAGA
+  A3 -. "dispara" .-> SAGA

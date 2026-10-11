@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: config-server
+  profiles:
+    # "native" = backend de archivos; se INCLUYE (no se "activa") para que SPRING_PROFILES_ACTIVE=local/docker/aws del
+    # entorno no lo desplace. Los perfiles local/docker/aws que sirve los pide cada cliente.
+    include: native
+  cloud:
+    config:
+      server:
+        native:
+          # Archivos YAML por servicio y por perfil: {app}.yml, {app}-{profile}.yml, application.yml, application-{profile}.yml
+          search-locations: ${CONFIG_REPO_PATH:file:./infra/config-repo}
+  security:
+    user:
+      name: ${CONFIG_SERVER_USER:config}
+      password: ${CONFIG_SERVER_PASSWORD}   # obligatoria: sin valor por defecto (ver .env.example)
+
+server:
+  port: ${SERVER_PORT:8888}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

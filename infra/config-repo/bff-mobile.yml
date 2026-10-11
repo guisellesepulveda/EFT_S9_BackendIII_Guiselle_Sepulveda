@@ -1,0 +1,108 @@
+# bff-mobile: HTTPS, resource server JWT (scopes mobile:*), compresión, ETag/Cache-Control, rate limiting por usuario y proxy
+# de login/refresh (el BFF es el cliente confidencial mobile-client). Los tests importan este mismo archivo.
+server:
+  port: ${SERVER_PORT:8444}
+  ssl:
+    bundle: bff-tls
+    client-auth: none
+  compression:
+    enabled: true                    # gzip: las respuestas JSON de las redes móviles pesan ~70 % menos
+    mime-types: application/json
+    min-response-size: 256
+
+spring:
+  ssl:
+    bundle:
+      jks:
+        bff-tls:
+          keystore:
+            location: ${TLS_KEYSTORE:file:certs/out/server.p12}
+            password: ${KEYSTORE_PASSWORD}
+            type: PKCS12
+          truststore:
+            location: ${TLS_TRUSTSTORE:file:certs/out/truststore.p12}
+            password: ${TRUSTSTORE_PASSWORD}
+            type: PKCS12
+
+management:
+  server:
+    port: ${MANAGEMENT_PORT:18444}
+    ssl:
+      enabled: false              # la gestión va en HTTP plano y solo por la red interna (nunca por el puerto público)
+
+eureka:
+  instance:
+    non-secure-port-enabled: false
+    secure-port-enabled: true
+    secure-port: ${server.port}
+
+bff:
+  customer-cache-ttl: 5m
+  mobile:
+    max-age-seconds: 10              # Cache-Control: private, max-age=10 en las lecturas
+    auth:
+      token-uri: ${AUTH_TOKEN_URI:http://localhost:9000/oauth2/token}
+      client-id: mobile-client
+      client-secret: ${MOBILE_CLIENT_SECRET}
+      allowed-redirect-uris:
+        - bancoxyz://callback        # esquema propio registrado en la app; otras URI se rechazan antes de llamar al auth-server
+    rate-limit:
+      requests-per-minute: 120       # por usuario autenticado
+      burst: 30
+      auth-requests-per-minute: 10   # login/refresh: por IP
+
+clients:
+  accounts:
+    url: ""
+  customers:
+    url: ""
+  payments:
+    url: ""
+
+spring.cloud.openfeign.client.config.default:
+  connect-timeout: 800
+  read-timeout: 2000
+  logger-level: basic
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+        record-exceptions: [feign.FeignException, java.io.IOException, java.util.concurrent.TimeoutException]
+        ignore-exceptions: [cl.bancoxyz.platform.web.ApiException]
+    instances:
+      accounts: {base-config: default}
+      customers: {base-config: default}
+      payments: {base-config: default}
+  retry:
+    configs:
+      default:
+        max-attempts: 2              # móvil: falla rápido, la app reintenta con su propia política
+        wait-duration: 150ms
+        retry-exceptions: [feign.FeignException, java.io.IOException, java.util.concurrent.TimeoutException]
+        ignore-exceptions: [cl.bancoxyz.platform.web.ApiException]
+    instances:
+      accounts: {base-config: default}
+      customers: {base-config: default}
+      payments: {base-config: default}
+  timelimiter:
+    configs:
+      default: {timeout-duration: 2500ms, cancel-running-future: true}
+    instances:
+      accounts: {base-config: default}
+      customers: {base-config: default}
+      payments: {base-config: default}
+  bulkhead:
+    configs:
+      default: {max-concurrent-calls: 25, max-wait-duration: 50ms}
+    instances:
+      accounts: {base-config: default}
+      customers: {base-config: default}
+      payments: {base-config: default}

@@ -1,0 +1,20 @@
+NAME                            IMAGE                             COMMAND                  SERVICE             CREATED         STATUS                   PORTS
+banco-xyz-accounts-service-1    banco-xyz/accounts-service:dev    "java -jar /app/app.…"   accounts-service    8 minutes ago   Up 8 minutes (healthy)   8082/tcp
+banco-xyz-accounts-service-2    banco-xyz/accounts-service:dev    "java -jar /app/app.…"   accounts-service    7 minutes ago   Up 7 minutes (healthy)   8082/tcp
+banco-xyz-accounts-service-3    banco-xyz/accounts-service:dev    "java -jar /app/app.…"   accounts-service    7 minutes ago   Up 7 minutes (healthy)   8082/tcp
+banco-xyz-api-gateway-1         banco-xyz/api-gateway:dev         "java -jar /app/app.…"   api-gateway         5 minutes ago   Up 5 minutes (healthy)   0.0.0.0:443->8446/tcp, [::]:443->8446/tcp
+banco-xyz-auth-server-1         banco-xyz/auth-server:dev         "java -jar /app/app.…"   auth-server         9 minutes ago   Up 9 minutes (healthy)   0.0.0.0:9000->9000/tcp, [::]:9000->9000/tcp
+banco-xyz-batch-service-1       banco-xyz/batch-service:dev       "java -jar /app/app.…"   batch-service       5 minutes ago   Up 5 minutes (healthy)   8085/tcp
+banco-xyz-bff-atm-1             banco-xyz/bff-atm:dev             "java -jar /app/app.…"   bff-atm             5 minutes ago   Up 5 minutes (healthy)   0.0.0.0:8443->8445/tcp, [::]:8443->8445/tcp
+banco-xyz-bff-mobile-1          banco-xyz/bff-mobile:dev          "java -jar /app/app.…"   bff-mobile          5 minutes ago   Up 5 minutes (healthy)   0.0.0.0:8442->8444/tcp, [::]:8442->8444/tcp
+banco-xyz-bff-web-1             banco-xyz/bff-web:dev             "java -jar /app/app.…"   bff-web             5 minutes ago   Up 5 minutes (healthy)   0.0.0.0:8441->8443/tcp, [::]:8441->8443/tcp
+banco-xyz-config-server-1       banco-xyz/config-server:dev       "java -jar /app/app.…"   config-server       9 minutes ago   Up 9 minutes (healthy)   8888/tcp
+banco-xyz-customers-service-1   banco-xyz/customers-service:dev   "java -jar /app/app.…"   customers-service   8 minutes ago   Up 8 minutes (healthy)   8081/tcp
+banco-xyz-customers-service-2   banco-xyz/customers-service:dev   "java -jar /app/app.…"   customers-service   7 minutes ago   Up 7 minutes (healthy)   8081/tcp
+banco-xyz-discovery-server-1    banco-xyz/discovery-server:dev    "java -jar /app/app.…"   discovery-server    9 minutes ago   Up 9 minutes (healthy)   127.0.0.1:8761->8761/tcp
+banco-xyz-kafka-1               apache/kafka:3.9.1                "/__cacert_entrypoin…"   kafka               9 minutes ago   Up 9 minutes (healthy)   9092/tcp
+banco-xyz-kafka-ui-1            provectuslabs/kafka-ui:v0.7.2     "/bin/sh -c 'java --…"   kafka-ui            9 minutes ago   Up 9 minutes             127.0.0.1:8089->8080/tcp
+banco-xyz-payments-service-1    banco-xyz/payments-service:dev    "java -jar /app/app.…"   payments-service    8 minutes ago   Up 8 minutes (healthy)   8083/tcp
+banco-xyz-payments-service-2    banco-xyz/payments-service:dev    "java -jar /app/app.…"   payments-service    7 minutes ago   Up 7 minutes (healthy)   8083/tcp
+banco-xyz-postgres-1            postgres:16-alpine                "docker-entrypoint.s…"   postgres            9 minutes ago   Up 9 minutes (healthy)   5432/tcp
+banco-xyz-zipkin-1              openzipkin/zipkin:3.6             "start-zipkin"           zipkin              9 minutes ago   Up 9 minutes (healthy)   9410/tcp, 127.0.0.1:9411->9411/tcp

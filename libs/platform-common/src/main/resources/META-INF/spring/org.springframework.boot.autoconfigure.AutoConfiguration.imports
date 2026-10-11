@@ -1,0 +1,6 @@
+cl.bancoxyz.platform.kafka.PlatformKafkaAutoConfiguration
+cl.bancoxyz.platform.outbox.PlatformOutboxAutoConfiguration
+cl.bancoxyz.platform.security.PlatformSecurityAutoConfiguration
+cl.bancoxyz.platform.web.PlatformWebAutoConfiguration
+cl.bancoxyz.platform.client.PlatformClientAutoConfiguration
+cl.bancoxyz.platform.resilience.PlatformResilienceAutoConfiguration

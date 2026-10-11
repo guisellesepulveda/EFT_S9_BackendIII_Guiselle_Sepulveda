@@ -1,0 +1,37 @@
+# Configuración externalizada de batch-service (la sirve el Config Server, ver Etapa 2).
+# Sobrescribe los valores por defecto de batch/batch-service/src/main/resources/application.yml.
+# Las tasas de interés son valores de EJEMPLO para la demo académica (ADR-002); no son tasas reales del banco.
+batch:
+  chunk-size: 100            # filas por transacción/commit
+  skip-limit: 5000           # omisiones permitidas por step antes de fallar el job
+  retry-limit: 3             # intentos ante fallos transitorios de BD (TransientDataAccessException, ...)
+  backoff:
+    initial: 200ms           # backoff exponencial: 200ms, 400ms, 800ms... hasta max
+    multiplier: 2.0
+    max: 5s
+  parallelism:
+    grid-size: 4             # particiones del job diario (partitioning local)
+    threads: 4               # hilos del step multi-hilo del job anual
+  date-formats: yyyy-MM-dd,yyyy/MM/dd   # D-1: formatos de fecha aceptados; el resto se rechaza
+  anomaly:
+    amount-threshold: 2500   # monto > umbral => anomalía OUTLIER_AMOUNT (el movimiento sí se procesa)
+    alert-high-threshold: 100  # > N anomalías: la alerta a security.alerts sube de LOW a MEDIUM
+  interest:
+    min-age: 18
+    max-age: 100
+    annual-rates:            # tasa anual por tipo de cuenta; interés = saldo * tasa / 12 (MENSUAL) o / 4 (TRIMESTRAL)
+      ahorro: 0.0250
+      prestamo: 0.1200
+      hipoteca: 0.0600
+  auto-retry:
+    enabled: true            # reintento automático de una instancia FAILED (restart desde el último chunk)
+    max-attempts: 3          # ejecuciones totales por instancia
+    delay: 30s
+  schedule:
+    enabled: false           # true activa los cron de abajo
+    daily-cron: "0 0 2 * * *"      # diario 02:00
+    interest-cron: "0 0 3 1 * *"   # día 1 de cada mes 03:00
+    annual-cron: "0 0 4 1 1 *"     # 1 de enero 04:00
+  events:
+    enabled: true
+    topic: batch.job.events

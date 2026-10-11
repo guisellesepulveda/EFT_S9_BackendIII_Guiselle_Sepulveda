@@ -1,0 +1,759 @@
+{
+  "info": {
+    "name": "Banco XYZ — Plataforma",
+    "description": "Colección de pruebas manuales (ver instrucciones.md). Variables en el entorno `banco-xyz.postman_environment.json`. Sin secretos: complételos desde su `.env`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0 · Tokens (auth-server)",
+      "item": [
+        {
+          "name": "Token interno (client_credentials, scope internal)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{auth}}/oauth2/token",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "internal-service",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{internal_secret}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "client_credentials"
+                },
+                {
+                  "key": "scope",
+                  "value": "internal"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const t = pm.response.json().access_token;",
+                  "pm.environment.set('internal_token', t);",
+                  "pm.test('token obtenido', () => pm.expect(t).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token ATM (client_credentials, scope atm:operate)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{auth}}/oauth2/token",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "atm-client",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{atm_secret}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "client_credentials"
+                },
+                {
+                  "key": "scope",
+                  "value": "atm:operate"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const t = pm.response.json().access_token;",
+                  "pm.environment.set('atm_token', t);",
+                  "pm.test('token obtenido', () => pm.expect(t).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Los tokens web y móvil usan Authorization Code + PKCE: obténgalos con `scripts/token.sh web|mobile customer1` y péguelos en `mobile_token`."
+    },
+    {
+      "name": "1 · API Gateway → microservicios (token interno)",
+      "item": [
+        {
+          "name": "Crear cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{gateway}}/api/customers",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"documentNumber\": \"12345678-5\",\n  \"firstName\": \"Camila\",\n  \"lastName\": \"Rojas\",\n  \"email\": \"camila@example.com\",\n  \"phone\": \"+56912345678\",\n  \"username\": \"customer1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internal_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('customer_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Perfil del cliente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{gateway}}/api/customers/{{customer_id}}/profile",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internal_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Abrir cuenta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{gateway}}/api/accounts",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{customer_id}}\",\n  \"type\": \"CHECKING\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internal_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('account_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Saldo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{gateway}}/api/accounts/{{account_id}}/balance",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internal_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Depósito (202, saga asíncrona)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{gateway}}/api/payments/deposit",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"toAccountId\": \"{{account_id}}\",\n  \"amount\": 10000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internal_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('payment_id', pm.response.json().paymentId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Estado del pago",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{gateway}}/api/payments/{{payment_id}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internal_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Movimientos de la cuenta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{gateway}}/api/accounts/{{account_id}}/movements?limit=5",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internal_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2 · Batch (requiere token con rol BATCH_ADMIN)",
+      "item": [
+        {
+          "name": "Lanzar dailyTransactionReportJob",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{gateway}}/api/batch/jobs/dailyTransactionReportJob",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parameters\": {\n    \"runId\": \"postman-1\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{batch_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('execution_id', pm.response.json().executionId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lanzar monthlyInterestJob",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{gateway}}/api/batch/jobs/monthlyInterestJob",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parameters\": {\n    \"runId\": \"postman-1\",\n    \"periodo\": \"MENSUAL\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{batch_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lanzar annualStatementJob",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{gateway}}/api/batch/jobs/annualStatementJob",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parameters\": {\n    \"runId\": \"postman-1\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{batch_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Estado de una ejecución",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{gateway}}/api/batch/executions/{{execution_id}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{batch_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Rechazados de una ejecución",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{gateway}}/api/batch/executions/{{execution_id}}/rejected?limit=10",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{batch_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "description": "`batch_admin_token` = `scripts/token.sh web batch-admin`."
+    },
+    {
+      "name": "3 · BFF móvil (token mobile:*)",
+      "item": [
+        {
+          "name": "Home (saldo total + cuentas)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{bff_mobile}}/mobile/home",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{mobile_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cuentas con campos parciales",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{bff_mobile}}/mobile/accounts?fields=number,balance",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{mobile_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Token ATM contra BFF móvil → 403 (seguridad por canal)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{bff_mobile}}/mobile/home",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{atm_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Transferencia (Idempotency-Key obligatoria)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bff_mobile}}/mobile/transfers",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"from\": \"{{account_id}}\",\n  \"to\": \"{{account_id_2}}\",\n  \"amount\": 1000,\n  \"note\": \"demo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{mobile_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4 · BFF ATM (mTLS + token atm:operate)",
+      "item": [
+        {
+          "name": "Emitir tarjeta simulada (token interno)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bff_atm}}/atm/internal/cards",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cardId\": \"40001234567890\",\n  \"accountId\": \"{{account_id}}\",\n  \"pin\": \"1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internal_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Saldo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bff_atm}}/atm/balance",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cardId\": \"40001234567890\",\n  \"pin\": \"1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{atm_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Últimos 5 movimientos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bff_atm}}/atm/movements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cardId\": \"40001234567890\",\n  \"pin\": \"1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{atm_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Retiro (Idempotency-Key obligatoria; dispense=true solo si está confirmado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bff_atm}}/atm/withdrawals",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cardId\": \"40001234567890\",\n  \"pin\": \"1234\",\n  \"amount\": 20000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{atm_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Token móvil contra BFF ATM → 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bff_atm}}/atm/balance",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cardId\": \"40001234567890\",\n  \"pin\": \"1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{mobile_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "description": "Configure en Postman → Settings → Certificates: CA = certs/out/ca.crt y un certificado de cliente para localhost:8445 (CRT = certs/out/atm-0001.crt, KEY = certs/out/atm-0001.key). Sin certificado de cliente el handshake TLS falla (es lo esperado)."
+    },
+    {
+      "name": "5 · BFF web (sesión con cookie)",
+      "item": [
+        {
+          "name": "¿Quién soy? (requiere sesión)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{bff_web}}/web/me"
+          }
+        },
+        {
+          "name": "Dashboard agregado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{bff_web}}/web/dashboard?movements=5"
+          }
+        }
+      ],
+      "description": "El BFF web no usa Bearer: abra https://localhost:8443/oauth2/authorization/web-client en el navegador (usuario customer1), o use el *Postman Interceptor* para compartir la cookie BFFWEB_SESSION. Las escrituras exigen la cabecera X-XSRF-TOKEN."
+    }
+  ]
+}

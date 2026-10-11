@@ -1,0 +1,8 @@
+NAME                            SERVICE             STATUS
+banco-xyz-accounts-service-1    accounts-service    Up 3 minutes (healthy)
+banco-xyz-accounts-service-2    accounts-service    Up About a minute (healthy)
+banco-xyz-accounts-service-3    accounts-service    Up About a minute (healthy)
+banco-xyz-customers-service-1   customers-service   Up 3 minutes (healthy)
+banco-xyz-customers-service-2   customers-service   Up About a minute (healthy)
+banco-xyz-payments-service-1    payments-service    Up 3 minutes (healthy)
+banco-xyz-payments-service-2    payments-service    Up About a minute (healthy)

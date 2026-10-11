@@ -1,0 +1,58 @@
+== 1. Nombres exactos (raíz y entrega/)
+  ✔ ./readme.md (nombre exacto, minúsculas)
+  ✔ ./instrucciones.md (nombre exacto, minúsculas)
+  ✔ ./despliegue.md (nombre exacto, minúsculas)
+  ✔ entrega/readme.md (nombre exacto, minúsculas)
+  ✔ entrega/instrucciones.md (nombre exacto, minúsculas)
+  ✔ entrega/despliegue.md (nombre exacto, minúsculas)
+== 2. Carpeta de entrega: readme, instrucciones, despliegue, informe PDF y espacio para el video
+  ✔ entrega/Informe_Tecnico_EFT_PBY2203.pdf
+  ✔ entrega/LEEME_VIDEO.md (espacio para <<COMPLETAR: video.mp4>>)
+  ✔ entrega/codigo-fuente.zip (se genera con scripts/armar-entrega.sh)
+  ✔ informe de la entrega idéntico al de docs/informe
+  ⚠ video MP4 aún no colocado en entrega/ (acción manual: grabar en Kaltura y copiar)
+== 3. Sin secretos en el repositorio (archivos versionados e historial completo)
+  ✔ ningún .env, .key, .p12, .pem, .jks ni .crt en el historial de git
+  ✔ .env y certs/out están ignorados
+  ✔ ningún valor de .env aparece en archivos versionados ni en el historial
+  ✔ sin llaves privadas ni credenciales de AWS/GitHub en el código
+  ✔ sin contraseñas ni secretos literales en el código (solo ${VARIABLES} y CHANGE_ME)
+  ✔ .env.example solo contiene CHANGE_ME como secreto
+== 4. Todos los PENDIENTE-AWS y COMPLETAR están en el resumen único al final de despliegue.md
+  ✔ cada placeholder del repositorio figura en el resumen de despliegue.md
+     (en el resumen: 22 PENDIENTE-AWS y 4 COMPLETAR)
+== 5. Archivos que respaldan cada criterio de la pauta
+  ✔ C1: readme.md
+  ✔ C1: docs/analisis_datos_legacy.md
+  ✔ C2: docs/adr/ADR-001-versiones-spring.md
+  ✔ C2: docs/adr/ADR-009-despliegue-aws-en-dos-pasos.md
+  ✔ C3: batch/batch-service/pom.xml
+  ✔ C3: evidencias/local/batch_benchmark.md
+  ✔ C3: docs/equivalencia_legacy.md
+  ✔ C4: bff/bff-web/pom.xml
+  ✔ C4: bff/bff-mobile/pom.xml
+  ✔ C4: bff/bff-atm/pom.xml
+  ✔ C4: evidencias/local/bff_payloads.md
+  ✔ C4: docs/openapi/bff-atm.json
+  ✔ C5: services/customers-service/pom.xml
+  ✔ C5: services/accounts-service/pom.xml
+  ✔ C5: services/payments-service/pom.xml
+  ✔ C6: docker-compose.yml
+  ✔ C6: docker-compose.scale.yml
+  ✔ C6: infra/aws/ec2/deploy.sh
+  ✔ C6: evidencias/local/scale_demo.log
+  ✔ C7: docs/informe/Informe_Tecnico_EFT_PBY2203.pdf
+  ✔ C8: docs/guion_video.md
+  ✔ C1-C8: docs/trazabilidad.md
+  ✔ C1-C8: evidencias/INDICE.md
+  ✔ los 11 módulos desplegables tienen Dockerfile multi-stage
+  ✔ los 3 jobs batch existen
+== 6. Resultados registrados
+  ✔ smoke test: TODO CORRECTO
+  ✔ smoke test remoto simulado: TODO CORRECTO
+  ✔ matriz de seguridad por canal: TODO CORRECTO
+  ✔ mvn verify: BUILD SUCCESS
+  ✔ docker compose config válido (base, escalado, desarrollo y override de AWS)
+  ✔ todos los scripts .sh tienen sintaxis válida (bash -n)
+
+VERIFICACIÓN FINAL: TODO CORRECTO

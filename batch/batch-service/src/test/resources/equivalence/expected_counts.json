@@ -1,0 +1,40 @@
+{
+  "movimientos": {
+    "filas": 1000,
+    "escritas": 209,
+    "rechazadas": 791,
+    "filtradas": 0,
+    "anomalias": {
+      "INVALID_DATE": 501,
+      "MISSING_AMOUNT": 168,
+      "NON_POSITIVE_AMOUNT": 145,
+      "OUTLIER_AMOUNT": 34,
+      "UNKNOWN_TYPE": 383
+    }
+  },
+  "intereses": {
+    "filas": 1000,
+    "escritas": 509,
+    "rechazadas": 489,
+    "filtradas": 2,
+    "defectos": {
+      "AGE_OUT_OF_RANGE": 46,
+      "INVALID_ACCOUNT_TYPE": 325,
+      "MISSING_BALANCE": 204
+    }
+  },
+  "estados": {
+    "filas": 1000,
+    "escritas": 230,
+    "rechazadas": 770,
+    "filtradas": 0,
+    "defectos": {
+      "INVALID_DATE": 498,
+      "INVALID_TRANSACTION_TYPE": 51,
+      "MISSING_AMOUNT": 48,
+      "MISSING_DESCRIPTION": 184,
+      "NON_POSITIVE_AMOUNT": 348
+    },
+    "cuentas_con_estado": 20
+  }
+}

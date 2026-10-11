@@ -1,0 +1,45 @@
+{
+  "_comentario": "EJEMPLO CONCEPTUAL de la arquitectura objetivo (ECS Fargate). NO está desplegado. Un servicio ECS por microservicio/BFF; este es accounts-service. Reemplace los <...> al desplegar.",
+  "family": "banco-xyz-accounts-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "runtimePlatform": { "cpuArchitecture": "X86_64", "operatingSystemFamily": "LINUX" },
+  "executionRoleArn": "arn:aws:iam::<ID de cuenta>:role/<rol de ejecución ECS>",
+  "taskRoleArn": "arn:aws:iam::<ID de cuenta>:role/<rol de la tarea>",
+  "containerDefinitions": [
+    {
+      "name": "accounts-service",
+      "image": "<ID de cuenta>.dkr.ecr.<región>.amazonaws.com/banco-xyz/accounts-service:<tag>",
+      "essential": true,
+      "portMappings": [{ "containerPort": 8082, "protocol": "tcp" }],
+      "environment": [
+        { "name": "SPRING_PROFILES_ACTIVE", "value": "aws" },
+        { "name": "CONFIG_SERVER_URL", "value": "http://config-server.<namespace Cloud Map>:8888" },
+        { "name": "EUREKA_URL", "value": "http://discovery-server.<namespace Cloud Map>:8761/eureka/" },
+        { "name": "KAFKA_BOOTSTRAP_SERVERS", "value": "<bootstrap servers MSK>" },
+        { "name": "POSTGRES_HOST", "value": "<endpoint RDS>" },
+        { "name": "JAVA_TOOL_OPTIONS", "value": "-XX:MaxRAMPercentage=70 -XX:+UseSerialGC" }
+      ],
+      "secrets": [
+        { "name": "ACCOUNTS_DB_PASSWORD", "valueFrom": "<ARN del secreto ACCOUNTS_DB_PASSWORD en Secrets Manager>" },
+        { "name": "CONFIG_SERVER_PASSWORD", "valueFrom": "<ARN del secreto CONFIG_SERVER_PASSWORD>" },
+        { "name": "EUREKA_PASSWORD", "valueFrom": "<ARN del secreto EUREKA_PASSWORD>" },
+        { "name": "INTERNAL_SERVICE_CLIENT_SECRET", "valueFrom": "<ARN del secreto INTERNAL_SERVICE_CLIENT_SECRET>" }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health > /dev/null || exit 1"],
+        "interval": 10, "timeout": 5, "retries": 6, "startPeriod": 90
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/banco-xyz/accounts-service",
+          "awslogs-region": "<región>",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

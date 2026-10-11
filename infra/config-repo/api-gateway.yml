@@ -1,0 +1,167 @@
+# api-gateway: rutas, balanceo (lb://), rate limiting y circuit breaker.
+# /api/{recurso}/** se reenvía al servicio dueño, quitando el prefijo /api (excepto batch, que ya vive bajo /api/batch).
+server:
+  port: ${SERVER_PORT:8446}
+  ssl:
+    bundle: gateway-tls             # HTTPS siempre: certificados de certs/generate-dev-certs.sh (en AWS: ACM en el ALB)
+    client-auth: none
+
+spring:
+  ssl:
+    bundle:
+      jks:
+        gateway-tls:
+          keystore:
+            location: ${TLS_KEYSTORE:file:certs/out/server.p12}
+            password: ${KEYSTORE_PASSWORD}
+            type: PKCS12
+          truststore:
+            location: ${TLS_TRUSTSTORE:file:certs/out/truststore.p12}
+            password: ${TRUSTSTORE_PASSWORD}
+            type: PKCS12
+  cloud:
+    gateway:
+      server:
+        webflux:
+          observability:
+            enabled: true                         # propaga traceparent a los servicios (Micrometer Tracing + Zipkin)
+          default-filters:
+            - name: RequestRateLimiter            # límite por usuario (token bucket en memoria)
+              args:
+                rate-limiter: "#{@inMemoryRateLimiter}"
+                key-resolver: "#{@principalKeyResolver}"
+                status-code: TOO_MANY_REQUESTS
+          httpclient:
+            connect-timeout: 500          # una réplica muerta se detecta en 0,5 s (y el Retry pasa a otra)
+            response-timeout: 10s
+          routes:
+            - id: customers
+              uri: lb://customers-service
+              predicates:
+                - Path=/api/customers/**
+              filters:
+                - StripPrefix=1
+                - name: CircuitBreaker
+                  args: { name: customers, fallbackUri: "forward:/fallback/customers", statusCodes: "500,502,503,504" }
+                - name: Retry                 # lecturas: si una réplica murió (conexión rechazada o reutilizada y cerrada), reintenta en OTRA réplica
+                  args:
+                    retries: 5                # el balanceador excluye solo la instancia del intento anterior: con varias réplicas muertas hacen falta más intentos
+                    methods: GET
+                    exceptions: java.io.IOException
+                    backoff: {firstBackoff: 50ms, maxBackoff: 500ms, factor: 2, basedOnPreviousValue: false}
+                - name: Retry                 # escrituras: SOLO errores de conexión (no se envió nada, reintentar es seguro); el resto lo reintenta el cliente con su Idempotency-Key
+                  args:
+                    retries: 3
+                    methods: POST,PUT,PATCH,DELETE
+                    exceptions: java.net.ConnectException,java.net.NoRouteToHostException,io.netty.channel.ConnectTimeoutException
+                    backoff: {firstBackoff: 50ms, maxBackoff: 500ms, factor: 2, basedOnPreviousValue: false}
+            - id: accounts
+              uri: lb://accounts-service
+              predicates:
+                - Path=/api/accounts/**
+              filters:
+                - StripPrefix=1
+                - name: CircuitBreaker
+                  args: { name: accounts, fallbackUri: "forward:/fallback/accounts", statusCodes: "500,502,503,504" }
+                - name: Retry                 # lecturas: si una réplica murió (conexión rechazada o reutilizada y cerrada), reintenta en OTRA réplica
+                  args:
+                    retries: 5                # el balanceador excluye solo la instancia del intento anterior: con varias réplicas muertas hacen falta más intentos
+                    methods: GET
+                    exceptions: java.io.IOException
+                    backoff: {firstBackoff: 50ms, maxBackoff: 500ms, factor: 2, basedOnPreviousValue: false}
+                - name: Retry                 # escrituras: SOLO errores de conexión (no se envió nada, reintentar es seguro); el resto lo reintenta el cliente con su Idempotency-Key
+                  args:
+                    retries: 3
+                    methods: POST,PUT,PATCH,DELETE
+                    exceptions: java.net.ConnectException,java.net.NoRouteToHostException,io.netty.channel.ConnectTimeoutException
+                    backoff: {firstBackoff: 50ms, maxBackoff: 500ms, factor: 2, basedOnPreviousValue: false}
+            - id: payments
+              uri: lb://payments-service
+              predicates:
+                - Path=/api/payments/**
+              filters:
+                - StripPrefix=1
+                - name: CircuitBreaker
+                  args: { name: payments, fallbackUri: "forward:/fallback/payments", statusCodes: "500,502,503,504" }
+                - name: Retry                 # lecturas: si una réplica murió (conexión rechazada o reutilizada y cerrada), reintenta en OTRA réplica
+                  args:
+                    retries: 5                # el balanceador excluye solo la instancia del intento anterior: con varias réplicas muertas hacen falta más intentos
+                    methods: GET
+                    exceptions: java.io.IOException
+                    backoff: {firstBackoff: 50ms, maxBackoff: 500ms, factor: 2, basedOnPreviousValue: false}
+                - name: Retry                 # escrituras: SOLO errores de conexión (no se envió nada, reintentar es seguro); el resto lo reintenta el cliente con su Idempotency-Key
+                  args:
+                    retries: 3
+                    methods: POST,PUT,PATCH,DELETE
+                    exceptions: java.net.ConnectException,java.net.NoRouteToHostException,io.netty.channel.ConnectTimeoutException
+                    backoff: {firstBackoff: 50ms, maxBackoff: 500ms, factor: 2, basedOnPreviousValue: false}
+            - id: batch
+              uri: lb://batch-service
+              predicates:
+                - Path=/api/batch/**
+              filters:
+                - name: CircuitBreaker
+                  args: { name: batch, fallbackUri: "forward:/fallback/batch", statusCodes: "500,502,503,504" }
+                - name: Retry                 # lecturas: si una réplica murió (conexión rechazada o reutilizada y cerrada), reintenta en OTRA réplica
+                  args:
+                    retries: 5                # el balanceador excluye solo la instancia del intento anterior: con varias réplicas muertas hacen falta más intentos
+                    methods: GET
+                    exceptions: java.io.IOException
+                    backoff: {firstBackoff: 50ms, maxBackoff: 500ms, factor: 2, basedOnPreviousValue: false}
+                - name: Retry                 # escrituras: SOLO errores de conexión (no se envió nada, reintentar es seguro); el resto lo reintenta el cliente con su Idempotency-Key
+                  args:
+                    retries: 3
+                    methods: POST,PUT,PATCH,DELETE
+                    exceptions: java.net.ConnectException,java.net.NoRouteToHostException,io.netty.channel.ConnectTimeoutException
+                    backoff: {firstBackoff: 50ms, maxBackoff: 500ms, factor: 2, basedOnPreviousValue: false}
+            # Endpoints /admin/** de cada servicio: /api/admin/{servicio}/x → /admin/x (siguen exigiendo ROLE_ADMIN)
+            - id: admin-customers
+              uri: lb://customers-service
+              predicates:
+                - Path=/api/admin/customers-service/**
+              filters:
+                - RewritePath=/api/admin/customers-service/(?<rest>.*), /admin/$\{rest}
+            - id: admin-accounts
+              uri: lb://accounts-service
+              predicates:
+                - Path=/api/admin/accounts-service/**
+              filters:
+                - RewritePath=/api/admin/accounts-service/(?<rest>.*), /admin/$\{rest}
+            - id: admin-payments
+              uri: lb://payments-service
+              predicates:
+                - Path=/api/admin/payments-service/**
+              filters:
+                - RewritePath=/api/admin/payments-service/(?<rest>.*), /admin/$\{rest}
+
+management:
+  server:
+    port: ${MANAGEMENT_PORT:18446}  # Actuator en HTTP plano y solo red interna: el puerto público no expone health/prometheus
+    ssl:
+      enabled: false              # la gestión va en HTTP plano y solo por la red interna (nunca por el puerto público)
+
+eureka:
+  instance:
+    non-secure-port-enabled: false
+    secure-port-enabled: true
+    secure-port: ${server.port}
+
+gateway:
+  rate-limit:
+    replenish-rate: 20          # tokens por segundo y por usuario
+    burst-capacity: 40
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 8s

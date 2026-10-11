@@ -1,0 +1,25 @@
+# Prometheus: descubre TODAS las réplicas de cada servicio por DNS de Docker (el nombre del servicio resuelve a la IP de
+# cada contenedor), así al escalar con --scale aparecen solas. Gateway y BFF exponen la gestión en su puerto interno 18xxx.
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+scrape_configs:
+  - job_name: microservicios
+    metrics_path: /actuator/prometheus
+    dns_sd_configs:
+      - {names: [customers-service], type: A, port: 8081}
+      - {names: [accounts-service], type: A, port: 8082}
+      - {names: [payments-service], type: A, port: 8083}
+      - {names: [batch-service], type: A, port: 8085}
+      - {names: [auth-server], type: A, port: 9000}
+  - job_name: gateway-y-bff
+    metrics_path: /actuator/prometheus
+    dns_sd_configs:
+      - {names: [api-gateway], type: A, port: 18446}
+      - {names: [bff-web], type: A, port: 18443}
+      - {names: [bff-mobile], type: A, port: 18444}
+      - {names: [bff-atm], type: A, port: 18445}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance

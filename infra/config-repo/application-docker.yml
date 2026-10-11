@@ -1,0 +1,30 @@
+# Perfil docker (docker compose): nombres DNS de la red del compose y logs JSON con traceId/spanId.
+spring:
+  config:
+    activate:
+      on-profile: docker
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:19092}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://auth-server:9000/oauth2/jwks}
+      client:
+        provider:
+          internal:
+            token-uri: ${AUTH_TOKEN_URI:http://auth-server:9000/oauth2/token}
+platform:
+  postgres-host: postgres
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://${EUREKA_USER:eureka}:${EUREKA_PASSWORD}@discovery-server:8761/eureka/}
+management:
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}
+logging:
+  structured:
+    format:
+      console: logstash       # JSON: @timestamp, level, message, traceId, spanId (MDC de Micrometer Tracing)

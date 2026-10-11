@@ -1,0 +1,22 @@
+NAME                            STATUS
+banco-xyz-accounts-service-1    Up 12 minutes (healthy)
+banco-xyz-accounts-service-2    Up 51 seconds (healthy)
+banco-xyz-accounts-service-3    Up 11 minutes (healthy)
+banco-xyz-api-gateway-1         Up 5 minutes (healthy)
+banco-xyz-auth-server-1         Up 12 minutes (healthy)
+banco-xyz-batch-service-1       Up 12 minutes (healthy)
+banco-xyz-bff-atm-1             Up 12 minutes (healthy)
+banco-xyz-bff-mobile-1          Up 12 minutes (healthy)
+banco-xyz-bff-web-1             Up 12 minutes (healthy)
+banco-xyz-config-server-1       Up 12 minutes (healthy)
+banco-xyz-customers-service-1   Up 12 minutes (healthy)
+banco-xyz-customers-service-2   Up 11 minutes (healthy)
+banco-xyz-discovery-server-1    Up 12 minutes (healthy)
+banco-xyz-grafana-1             Up 12 minutes
+banco-xyz-kafka-1               Up 12 minutes (healthy)
+banco-xyz-kafka-ui-1            Up 12 minutes
+banco-xyz-payments-service-1    Up 12 minutes (healthy)
+banco-xyz-payments-service-2    Up 11 minutes (healthy)
+banco-xyz-postgres-1            Up 12 minutes (healthy)
+banco-xyz-prometheus-1          Up 12 minutes
+banco-xyz-zipkin-1              Up 12 minutes (healthy)

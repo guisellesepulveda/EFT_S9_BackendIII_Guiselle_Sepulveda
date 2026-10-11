@@ -1,0 +1,40 @@
+%% Componentes internos de cada microservicio (clases reales del código)
+flowchart TB
+  subgraph CUS["customers-service · customersdb"]
+    direction TB
+    CC["CustomerController<br/>AdminController"] --> CS["CustomerService<br/>reglas: documento único · username"]
+    CS --> CR["CustomerRepository<br/>CustomerProfileRepository"]
+    EC["EventConsumers<br/>accounts.lifecycle → perfil<br/>transactions.completed → notificación<br/>security.alerts → alertas<br/>batch.job.events → monitoreo"] --> CR
+    CF["Flyway V1..V2"] -.-> CR
+  end
+  subgraph ACC["accounts-service · accountsdb"]
+    direction TB
+    AC["AccountController<br/>OperationController (solo scope internal)<br/>AdminController"] --> AS["AccountService"]
+    AC --> LS["LedgerService<br/>libro mayor idempotente por operationId<br/>UPDATE condicional balance >= monto"]
+    SC["SagaConsumers → SagaProcessor<br/>transactions.requested · .debited"] --> LS
+    LS --> AR["AccountRepository"]
+    AS --> CCL["ResilientCustomersClient<br/>Retry · CircuitBreaker · TimeLimiter"]
+    OB1["Outbox + publicador<br/>FOR UPDATE SKIP LOCKED"]
+    LS --> OB1
+    AS --> OB1
+  end
+  subgraph PAY["payments-service · paymentsdb"]
+    direction TB
+    PC["PaymentController<br/>Idempotency-Key + huella del cuerpo"] --> PS["PaymentService<br/>PaymentSaga"]
+    PS --> PR["PaymentRepository"]
+    PCO["PaymentConsumers<br/>credited · failed"] --> PS
+    RET["PaymentRetrier<br/>reemite pagos PENDING viejos"] --> PS
+    PS --> RAC["ResilientAccountsClient<br/>Retry · CB · TimeLimiter · Bulkhead<br/>fallback: PENDING degradado"]
+    PS --> RCC["ResilientCustomersClient<br/>fallback: caché local degraded=true"]
+    OB2["Outbox + publicador"]
+    PS --> OB2
+  end
+  K[["Kafka"]]
+  OB1 --> K
+  OB2 --> K
+  K --> SC
+  K --> PCO
+  K --> EC
+  RAC -. "Eureka + Feign" .-> AC
+  RCC -. "Eureka + Feign" .-> CC
+  CCL -. "Eureka + Feign" .-> CC

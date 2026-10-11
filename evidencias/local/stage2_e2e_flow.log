@@ -1,0 +1,37 @@
+== Tokens (Authorization Code + PKCE contra el auth-server)
+  token web de customer1 y de admin obtenidos
+== 1. Cliente
+  ✔ POST /customers → HTTP: 201
+== 2. Cuentas (accounts-service verifica al cliente en customers-service: Eureka + Feign + Resilience4j)
+  ✔ cuenta A → HTTP: 201
+  ✔ cuenta B → HTTP: 201
+  ✔ cuenta C → HTTP: 201
+  ✔ cerrar C (saldo 0) → HTTP: 200
+== 3. Depósito de 10000 en A (saga asíncrona: requested → credited → completed)
+  ✔ HTTP: 202
+  ✔ estado final del depósito: COMPLETED
+  ✔ idempotencia: misma Idempotency-Key → HTTP 200 y el mismo pago: 200/mismo
+== 4. Transferencia A → B de 2500.50
+  ✔ HTTP: 202
+  ✔ estado final de la transferencia: COMPLETED
+  ✔ saldo A: 7499.50
+  ✔ saldo B: 2500.50
+  historial del pago: ["PENDING","DEBITED","COMPLETED"]
+== 5. Reglas de negocio
+  ✔ retiro sin fondos → HTTP: 422
+  ✔ transferencia a la misma cuenta → HTTP: 422
+  ✔ transferencia a cuenta cerrada → HTTP: 422
+== 6. Seguridad
+  ✔ sin token → HTTP: 401
+  ✔ token de cliente (sin ROLE_ADMIN) en endpoint admin → HTTP: 403
+  ✔ token con ROLE_ADMIN en endpoint admin → HTTP: 200
+  ✔ un canal NO puede debitar directamente (solo scope internal) → HTTP: 403
+== 7. Consistencia eventual (accounts.lifecycle → perfil del cliente) y proyecciones
+  ✔ cuentas abiertas en el perfil (3 abiertas − 1 cerrada): 2
+  movimientos de A: [{"op_type":"DEBIT","amount":2500.50,"movement_status":"CONFIRMED"},{"op_type":"CREDIT","amount":10000.00,"movement_status":"CONFIRMED"}]
+  notificaciones (transactions.completed → customers): ["Transacción TRANSFER por 2500.50 CLP completada","Transacción DEPOSIT por 10000.00 CLP completada"]
+== 8. Trazabilidad
+  ✔ X-Trace-Id presente: si
+  traceId=6ac9b8aaaafce8b0062b35f8c2c46370  (Zipkin: http://localhost:9411/zipkin/traces/6ac9b8aaaafce8b0062b35f8c2c46370)
+
+FLUJO E2E: TODO CORRECTO

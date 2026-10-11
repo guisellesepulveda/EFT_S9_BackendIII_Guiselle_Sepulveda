@@ -1,0 +1,28 @@
+# Perfil aws. Se usa COMBINADO con docker en el despliegue de EC2 + Docker Compose (SPRING_PROFILES_ACTIVE=docker,aws):
+# "docker" aporta los nombres DNS de la red del compose; "aws" aporta lo propio de la nube y vuelve configurables, SOLO por
+# variables de entorno, los endpoints que en la arquitectura objetivo pasan a servicios gestionados.
+spring:
+  config:
+    activate:
+      on-profile: aws
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:19092}      # objetivo: <bootstrap servers MSK> (+ SASL_SSL por variables)
+platform:
+  postgres-host: ${POSTGRES_HOST:postgres}                          # objetivo: <endpoint RDS>
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://${EUREKA_USER:eureka}:${EUREKA_PASSWORD}@discovery-server:8761/eureka/}   # objetivo: Cloud Map / Service Connect
+management:
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}  # objetivo: <endpoint Zipkin/ADOT collector>
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING:1.0}                          # 100 % para la demo; en producción 0,1
+logging:
+  structured:
+    format:
+      console: logstash       # JSON a stdout: lo recoge el driver awslogs (CloudWatch Logs Insights consulta traceId, level, ...)
+# Credenciales: nunca en este archivo. EC2: .env en la instancia (generado con scripts/init-env.sh).
+# Arquitectura objetivo: variables inyectadas por la task definition desde Secrets Manager (<ARN de los secretos>).

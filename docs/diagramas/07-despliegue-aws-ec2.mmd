@@ -1,0 +1,34 @@
+%% Despliegue REAL y mínimo en AWS Academy Learner Lab: una EC2 de 2 vCPU y 16 GiB con IP elástica, Docker Compose y escalado de contenedores (despliegue.md, Parte A; ADR-010)
+flowchart LR
+  subgraph PC["Portátil (quien despliega)"]
+    PUSH["push.sh<br/>código + .env + certs"]
+    SMK["smoke-test.sh --host<br/>mTLS del cajero"]
+    TUN["tunnel.sh<br/>túnel SSH"]
+  end
+  subgraph AWS["AWS Academy Learner Lab · us-east-1 · VPC por defecto · Security Group banco-xyz-apps-sg · IP elástica"]
+    subgraph EC2["EC2 r6i.large · 2 vCPU · 16 GiB · 30 GB gp3 · Docker Compose"]
+      GW["api-gateway<br/>host :443"]
+      BW["bff-web :8441"]
+      BM["bff-mobile :8442"]
+      BA["bff-atm :8443<br/>mTLS"]
+      AU["auth-server :9000"]
+      subgraph ESC["Escalado horizontal (--scale)"]
+        ACC["accounts-service ×3"]
+        PAY["payments-service ×2"]
+        CUS["customers-service ×2"]
+      end
+      BAT["batch-service"]
+      INF["config · eureka · postgres · kafka<br/>zipkin · kafka-ui"]
+      LOOP["127.0.0.1: Eureka 8761 · Kafka UI 8089<br/>Zipkin 9411 · Grafana 3000"]
+    end
+  end
+  PUSH -- "SSH :22 (solo mi IP)" --> EC2
+  SMK -- "HTTPS :443 · :8441-8442" --> GW & BW & BM
+  SMK -- "mTLS :8443 (CIDR de cajeros)" --> BA
+  SMK -- "OIDC :9000 (solo mi IP)" --> AU
+  TUN -- "SSH -L" --> LOOP
+  GW --> ESC
+  BW & BM & BA --> ESC
+  ESC --> INF
+  BAT --> INF
+  INF --- LOOP

@@ -1,0 +1,18 @@
+NAME                            STATUS                    PORTS
+banco-xyz-accounts-service-1    Up 26 seconds (healthy)   8082/tcp
+banco-xyz-api-gateway-1         Up 26 seconds (healthy)   0.0.0.0:8446->8446/tcp, [::]:8446->8446/tcp
+banco-xyz-auth-server-1         Up 32 seconds (healthy)   0.0.0.0:9000->9000/tcp, [::]:9000->9000/tcp
+banco-xyz-batch-service-1       Up 26 seconds (healthy)   8085/tcp
+banco-xyz-bff-atm-1             Up 26 seconds (healthy)   0.0.0.0:8445->8445/tcp, [::]:8445->8445/tcp
+banco-xyz-bff-mobile-1          Up 26 seconds (healthy)   0.0.0.0:8444->8444/tcp, [::]:8444->8444/tcp
+banco-xyz-bff-web-1             Up 25 seconds (healthy)   0.0.0.0:8443->8443/tcp, [::]:8443->8443/tcp
+banco-xyz-config-server-1       Up 44 seconds (healthy)   8888/tcp
+banco-xyz-customers-service-1   Up 26 seconds (healthy)   8081/tcp
+banco-xyz-discovery-server-1    Up 44 seconds (healthy)   127.0.0.1:8761->8761/tcp
+banco-xyz-grafana-1             Up 43 seconds             127.0.0.1:3000->3000/tcp
+banco-xyz-kafka-1               Up 44 seconds (healthy)   127.0.0.1:9092->9092/tcp
+banco-xyz-kafka-ui-1            Up 32 seconds             127.0.0.1:8089->8080/tcp
+banco-xyz-payments-service-1    Up 26 seconds (healthy)   8083/tcp
+banco-xyz-postgres-1            Up 44 seconds (healthy)   127.0.0.1:5432->5432/tcp
+banco-xyz-prometheus-1          Up 44 seconds             127.0.0.1:9090->9090/tcp
+banco-xyz-zipkin-1              Up 44 seconds (healthy)   127.0.0.1:9411->9411/tcp

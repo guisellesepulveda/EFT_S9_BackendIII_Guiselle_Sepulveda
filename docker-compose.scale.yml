@@ -1,0 +1,14 @@
+# Override de escalado horizontal (C6): réplicas de los 3 microservicios detrás de Eureka + Spring Cloud LoadBalancer.
+#   docker compose -f docker-compose.yml -f docker-compose.scale.yml up -d
+# Equivale a:  docker compose up -d --scale accounts-service=3 --scale payments-service=2 --scale customers-service=2
+# Los servicios no fijan container_name ni publican puertos de host, por eso las réplicas no chocan entre sí.
+services:
+  accounts-service:
+    deploy:
+      replicas: 3
+  payments-service:
+    deploy:
+      replicas: 2
+  customers-service:
+    deploy:
+      replicas: 2

@@ -1,0 +1,39 @@
+# Secretos y entorno local
+.env
+*.key
+*.p12
+*.jks
+*.pem
+*.csr
+*.srl
+certs/out/
+certs/aws/
+
+# Build
+target/
+*.class
+*.log
+!evidencias/local/*.log
+
+# IDEs / SO
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Datos sintéticos grandes (se regeneran con scripts/)
+data/synthetic/
+outputs/
+
+
+
+# Informe: entorno virtual y archivos temporales
+scripts/informe/.venv/
+
+# Entrega: el video y el ZIP del código se generan/colocan a mano
+entrega/*.mp4
+entrega/codigo-fuente.zip
+
+# Estado del runbook de AWS (IDs, IPs)
+infra/aws/.deploy-state
+certs/aws-sim/

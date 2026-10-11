@@ -1,0 +1,363 @@
+{
+  "components" : {
+    "schemas" : {
+      "Account" : {
+        "properties" : {
+          "balance" : {
+            "example" : 7499.5,
+            "type" : "number"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "number" : {
+            "example" : "CL1000000001",
+            "type" : "string"
+          },
+          "type" : {
+            "example" : "CHECKING",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Home" : {
+        "properties" : {
+          "accounts" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Account"
+            },
+            "type" : "array"
+          },
+          "totalBalance" : {
+            "example" : 9999.5,
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "RefreshRequest" : {
+        "properties" : {
+          "refreshToken" : {
+            "minLength" : 1,
+            "type" : "string"
+          }
+        },
+        "required" : [ "refreshToken" ],
+        "type" : "object"
+      },
+      "TokenRequest" : {
+        "properties" : {
+          "code" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "codeVerifier" : {
+            "maxLength" : 128,
+            "minLength" : 43,
+            "type" : "string"
+          },
+          "redirectUri" : {
+            "minLength" : 1,
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "codeVerifier", "redirectUri" ],
+        "type" : "object"
+      },
+      "Tokens" : {
+        "properties" : {
+          "accessToken" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "refreshToken" : {
+            "type" : "string"
+          },
+          "scope" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Transfer" : {
+        "properties" : {
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "status" : {
+            "example" : "PENDING",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "TransferRequest" : {
+        "properties" : {
+          "amount" : {
+            "example" : 2500.5,
+            "minimum" : 0.01,
+            "type" : "number"
+          },
+          "from" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "note" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "to" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "required" : [ "amount", "from", "to" ],
+        "type" : "object"
+      }
+    }
+  },
+  "info" : {
+    "title" : "OpenAPI definition",
+    "version" : "v0"
+  },
+  "openapi" : "3.1.0",
+  "paths" : {
+    "/mobile/accounts" : {
+      "get" : {
+        "operationId" : "accounts",
+        "parameters" : [ {
+          "description" : "Campos separados por coma",
+          "in" : "query",
+          "name" : "fields",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "additionalProperties" : { },
+                    "type" : "object"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Mis cuentas abiertas. fields=id,number,type,balance permite pedir solo algunos campos",
+        "tags" : [ "BFF móvil" ]
+      }
+    },
+    "/mobile/accounts/{id}/movements" : {
+      "get" : {
+        "operationId" : "movements",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 10,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "fields",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "additionalProperties" : { },
+                    "type" : "object"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Últimos movimientos de una cuenta propia (máx. 20). fields=at,type,amount,status",
+        "tags" : [ "BFF móvil" ]
+      }
+    },
+    "/mobile/auth/refresh" : {
+      "post" : {
+        "operationId" : "refresh",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Tokens"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Renueva el access token (5 min) con el refresh token; cada refresh entrega uno NUEVO (rotación)",
+        "tags" : [ "BFF móvil" ]
+      }
+    },
+    "/mobile/auth/token" : {
+      "post" : {
+        "operationId" : "token",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TokenRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Tokens"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Canjea el código de autorización (PKCE) por tokens; el BFF aporta el secreto del cliente confidencial",
+        "tags" : [ "BFF móvil" ]
+      }
+    },
+    "/mobile/home" : {
+      "get" : {
+        "operationId" : "home",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Home"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Pantalla de inicio en UNA llamada: saldo total y cuentas abiertas (solo campos esenciales)",
+        "tags" : [ "BFF móvil" ]
+      }
+    },
+    "/mobile/transfers" : {
+      "post" : {
+        "operationId" : "transfer",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TransferRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transfer"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Transferencia desde una cuenta propia (Idempotency-Key obligatoria). Responde 202 con id y estado",
+        "tags" : [ "BFF móvil" ]
+      }
+    },
+    "/mobile/transfers/{id}" : {
+      "get" : {
+        "operationId" : "transferStatus",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transfer"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Estado de una transferencia propia (id y estado)",
+        "tags" : [ "BFF móvil" ]
+      }
+    }
+  },
+  "servers" : [ {
+    "description" : "BFF móvil (desarrollo)",
+    "url" : "https://localhost:8444"
+  } ],
+  "tags" : [ {
+    "description" : "API mínima: DTOs reducidos, gzip, ETag/Cache-Control y respuestas parciales (fields=)",
+    "name" : "BFF móvil"
+  } ]
+}

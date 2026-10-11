@@ -1,0 +1,398 @@
+{
+  "components" : {
+    "schemas" : {
+      "BalanceView" : {
+        "properties" : {
+          "account" : {
+            "example" : "****0001",
+            "type" : "string"
+          },
+          "asOf" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "balance" : {
+            "example" : 7499.5,
+            "type" : "number"
+          },
+          "currency" : {
+            "example" : "CLP",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "CardPin" : {
+        "properties" : {
+          "cardId" : {
+            "example" : "4000123412340001",
+            "pattern" : "^[0-9]{8,32}$",
+            "type" : "string"
+          },
+          "pin" : {
+            "example" : "1234",
+            "pattern" : "^[0-9]{4}$",
+            "type" : "string"
+          }
+        },
+        "required" : [ "cardId", "pin" ],
+        "type" : "object"
+      },
+      "CardRequest" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "cardId" : {
+            "pattern" : "^[0-9]{8,32}$",
+            "type" : "string"
+          },
+          "pin" : {
+            "pattern" : "^[0-9]{4}$",
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "cardId", "pin" ],
+        "type" : "object"
+      },
+      "MovementItem" : {
+        "properties" : {
+          "amount" : {
+            "example" : 2500.5,
+            "type" : "number"
+          },
+          "at" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "type" : {
+            "example" : "DEBIT",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "WithdrawalRequest" : {
+        "properties" : {
+          "amount" : {
+            "example" : 20000,
+            "minimum" : 1000,
+            "type" : "number"
+          },
+          "cardId" : {
+            "example" : "4000123412340001",
+            "pattern" : "^[0-9]{8,32}$",
+            "type" : "string"
+          },
+          "pin" : {
+            "example" : "1234",
+            "pattern" : "^[0-9]{4}$",
+            "type" : "string"
+          }
+        },
+        "required" : [ "amount", "cardId", "pin" ],
+        "type" : "object"
+      },
+      "WithdrawalResult" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "dispense" : {
+            "type" : "boolean"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "reference" : {
+            "description" : "id del pago, para consultar el estado",
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "APPROVED | PENDING | DECLINED | UNAVAILABLE",
+            "example" : "APPROVED",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      }
+    }
+  },
+  "info" : {
+    "title" : "OpenAPI definition",
+    "version" : "v0"
+  },
+  "openapi" : "3.1.0",
+  "paths" : {
+    "/atm/balance" : {
+      "post" : {
+        "operationId" : "balance",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CardPin"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BalanceView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Consulta de saldo (tarjeta + PIN en el cuerpo)",
+        "tags" : [ "BFF ATM" ]
+      }
+    },
+    "/atm/internal/audit" : {
+      "get" : {
+        "operationId" : "audit",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "additionalProperties" : { },
+                    "type" : "object"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Últimos registros de auditoría (solo scope internal)",
+        "tags" : [ "BFF ATM" ]
+      }
+    },
+    "/atm/internal/cards" : {
+      "post" : {
+        "operationId" : "issueCard",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CardRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "additionalProperties" : {
+                    "type" : "string"
+                  },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Emisión simulada de tarjeta (solo scope internal; el PIN se guarda como hash BCrypt)",
+        "tags" : [ "BFF ATM" ]
+      }
+    },
+    "/atm/movements" : {
+      "post" : {
+        "operationId" : "movements",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CardPin"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/MovementItem"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Últimos 5 movimientos (solo fecha, tipo y monto)",
+        "tags" : [ "BFF ATM" ]
+      }
+    },
+    "/atm/withdrawals" : {
+      "post" : {
+        "operationId" : "withdraw",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WithdrawalRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WithdrawalResult"
+                }
+              }
+            },
+            "description" : "APPROVED: pago confirmado, el cajero puede dispensar (dispense=true)"
+          },
+          "202" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WithdrawalResult"
+                }
+              }
+            },
+            "description" : "PENDING: sin confirmación dentro del plazo; NO dispensar, consultar GET /atm/withdrawals/{key}"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WithdrawalResult"
+                }
+              }
+            },
+            "description" : "Idempotency-Key ausente o cuerpo inválido"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WithdrawalResult"
+                }
+              }
+            },
+            "description" : "Token ausente, certificado ausente o tarjeta/PIN incorrectos"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WithdrawalResult"
+                }
+              }
+            },
+            "description" : "Token de otro canal (sin atm:operate) o cajero revocado"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WithdrawalResult"
+                }
+              }
+            },
+            "description" : "DECLINED, límite por retiro/diario superado o Idempotency-Key reutilizada con otra solicitud"
+          },
+          "423" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WithdrawalResult"
+                }
+              }
+            },
+            "description" : "Tarjeta bloqueada por PIN incorrecto"
+          },
+          "503" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WithdrawalResult"
+                }
+              }
+            },
+            "description" : "UNAVAILABLE: servicio temporalmente no disponible; nunca se dispensa"
+          }
+        },
+        "summary" : "Retiro. Idempotency-Key OBLIGATORIA. dispense=true solo si el pago está confirmado (200); 202 si sigue en proceso; 422 si se rechaza; 503 si no hay servicio",
+        "tags" : [ "BFF ATM" ]
+      }
+    },
+    "/atm/withdrawals/{key}" : {
+      "get" : {
+        "operationId" : "status",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WithdrawalResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Estado de un retiro por su Idempotency-Key (para cuando se recibió 202 PENDING)",
+        "tags" : [ "BFF ATM" ]
+      }
+    }
+  },
+  "servers" : [ {
+    "description" : "BFF ATM (desarrollo)",
+    "url" : "https://localhost:8445"
+  } ],
+  "tags" : [ {
+    "description" : "mTLS + token atm:operate. Solo consulta de saldo, retiro y últimos 5 movimientos",
+    "name" : "BFF ATM"
+  } ]
+}

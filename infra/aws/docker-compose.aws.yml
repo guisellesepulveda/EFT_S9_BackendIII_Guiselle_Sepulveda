@@ -1,0 +1,136 @@
+# Override de docker-compose.yml para la instancia EC2 de Learner Lab: tipo `r6i.large` o `r5.large` (2 vCPU y 16 GiB; $INSTANCE_TYPE del runbook).
+# Learner Lab no permite tamaños mayores a `large` (ADR-010): el diseño original con t3.xlarge (4 vCPU) ya no aplica.
+# Uso (deploy.sh lo configura vía COMPOSE_FILE en .env):
+#   docker compose -f docker-compose.yml -f infra/aws/docker-compose.aws.yml up -d \
+#     --scale accounts-service=3 --scale payments-service=2 --scale customers-service=2
+# Requiere Docker Compose >= 2.24 (etiquetas !override / !reset).
+#
+# PRESUPUESTO DE MEMORIA (límite por contenedor × réplicas). Los límites son techos; el consumo real medido es 45-83 % de cada uno
+# (docker-stats.log que genera infra/aws/ec2/verify.sh). Cabe en 16 GiB con holgura para SO, caché de disco y la compilación inicial.
+#
+#   Contenedor                     Límite   Réplicas   Total
+#   config-server                    384 MiB     1        384 MiB
+#   discovery-server                 512 MiB     1        512 MiB
+#   auth-server, api-gateway         512 MiB     1+1     1024 MiB
+#   bff-web, bff-mobile, bff-atm     512 MiB     1+1+1   1536 MiB
+#   customers-service                512 MiB     2       1024 MiB
+#   accounts-service                 512 MiB     3       1536 MiB
+#   payments-service                 512 MiB     2       1024 MiB
+#   batch-service                    768 MiB     1        768 MiB
+#   postgres                         512 MiB     1        512 MiB
+#   kafka                           1024 MiB     1       1024 MiB
+#   kafka-ui                         512 MiB     1        512 MiB
+#   zipkin                           512 MiB     1        512 MiB
+#   ----------------------------------------------------------------
+#   Subtotal (siempre activo)                            10368 MiB  (10,1 GiB)
+#   prometheus + grafana (perfil opcional "observability")  640 MiB  → 11008 MiB (10,75 GiB)
+#   Holgura sobre 16 GiB: 5,25 GiB (SO + Docker ~1 GiB, resto caché de página y picos de compilación).
+# Con 2 vCPU las ~14 JVM arrancan más despacio que con 4: los healthchecks usan una ventana de arranque más larga (x-health) y deploy.sh
+# levanta por oleadas. Si no cupiera (otro tipo de instancia): apagar primero kafka-ui, luego "observability" (ya apagado por defecto), y bajar a
+# --scale accounts-service=2.
+
+# Healthcheck con más margen de arranque (la imagen define el comando; aquí solo se amplían los tiempos). Medido en la simulación con 2 vCPU.
+x-health: &health
+  interval: 15s
+  timeout: 8s
+  retries: 12
+  start_period: 240s
+
+x-jvm: &jvm
+  JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70 -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+
+services:
+  # ---------------- Perfil Spring "aws" (se suma a docker) y límites de memoria ----------------
+  config-server:
+    healthcheck: *health
+    deploy: {resources: {limits: {memory: 384m}}}
+    environment: {<<: *jvm}
+  discovery-server:
+    healthcheck: *health
+    deploy: {resources: {limits: {memory: 512m}}}      # medido: 317 MiB bajo carga de registro (82 % de 384): se sube a 512
+    environment: {<<: *jvm}
+
+  auth-server:
+    healthcheck: *health
+    environment:
+      <<: *jvm
+      SPRING_PROFILES_ACTIVE: docker,aws
+      # El navegador y los clientes de los canales obtienen tokens en la IP/DNS pública de la instancia
+      AUTH_ISSUER_URI: http://${PUBLIC_HOST:?defina PUBLIC_HOST (IP o DNS público)}:9000
+      WEB_REDIRECT_URIS: https://${PUBLIC_HOST}:8441/login/oauth2/code/web-client
+      MOBILE_REDIRECT_URIS: bancoxyz://callback,https://${PUBLIC_HOST}:8442/login/oauth2/code/mobile-client
+    ports: !override
+      - "9000:9000"             # proveedor OIDC (HTTP: sin dominio no hay ACM; el SG lo limita a mi IP, ver despliegue.md)
+
+  api-gateway:
+    healthcheck: *health
+    environment: {<<: *jvm, SPRING_PROFILES_ACTIVE: "docker,aws"}
+    ports: !override
+      - "443:8446"              # HTTPS público: único punto de entrada a los microservicios
+
+  bff-web:
+    healthcheck: *health
+    environment:
+      <<: *jvm
+      SPRING_PROFILES_ACTIVE: docker,aws
+      AUTH_PUBLIC_URL: http://${PUBLIC_HOST}:9000
+    ports: !override
+      - "8441:8443"
+  bff-mobile:
+    healthcheck: *health
+    environment: {<<: *jvm, SPRING_PROFILES_ACTIVE: "docker,aws"}
+    ports: !override
+      - "8442:8444"
+  bff-atm:
+    healthcheck: *health
+    environment: {<<: *jvm, SPRING_PROFILES_ACTIVE: "docker,aws"}
+    ports: !override
+      - "8443:8445"             # HTTPS con mTLS obligatorio: el cajero presenta su certificado de cliente
+
+  # Microservicios: sin puertos de host (se escalan con --scale)
+  customers-service:
+    healthcheck: *health
+    environment: {<<: *jvm, SPRING_PROFILES_ACTIVE: "docker,aws"}
+  accounts-service:
+    healthcheck: *health
+    environment: {<<: *jvm, SPRING_PROFILES_ACTIVE: "docker,aws"}
+  payments-service:
+    healthcheck: *health
+    environment: {<<: *jvm, SPRING_PROFILES_ACTIVE: "docker,aws"}
+  batch-service:
+    healthcheck: *health
+    environment: {<<: *jvm, SPRING_PROFILES_ACTIVE: "docker,aws"}
+
+  # ---------------- Infraestructura: sin exposición a internet ----------------
+  # Eureka (8761), Kafka UI (8089), Zipkin (9411), Grafana (3000) y Prometheus (9090) ya publican solo en 127.0.0.1 de la
+  # instancia: se ven por túnel SSH (infra/aws/ec2/tunnel.sh). PostgreSQL y Kafka no publican nada.
+  postgres:
+    ports: !reset []
+    deploy: {resources: {limits: {memory: 512m}}}
+  kafka:
+    ports: !reset []
+    environment:
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+    deploy: {resources: {limits: {memory: 1024m}}}
+  kafka-ui:
+    deploy: {resources: {limits: {memory: 512m}}}
+  zipkin:
+    deploy: {resources: {limits: {memory: 512m}}}
+  prometheus:
+    profiles: !override [observability]      # opcional: COMPOSE_PROFILES=apps,observability
+    deploy: {resources: {limits: {memory: 384m}}}
+  grafana:
+    profiles: !override [observability]
+    deploy: {resources: {limits: {memory: 256m}}}
+
+# ---------------- CloudWatch Logs (opcional, DESACTIVADO) ----------------
+# Los logs ya salen en JSON a stdout. Para enviarlos a CloudWatch hace falta que el rol de la instancia permita
+# logs:CreateLogStream y logs:PutLogEvents (en Learner Lab puede estar restringido). Para activarlo, agregue a CADA servicio:
+#
+#   logging:
+#     driver: awslogs
+#     options:
+#       awslogs-region: "<región>"
+#       awslogs-group: "<log group, ej. /banco-xyz/compose>"
+#       awslogs-create-group: "true"
+#       tag: "{{.Name}}"

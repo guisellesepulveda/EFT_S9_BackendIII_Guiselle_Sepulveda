@@ -1,0 +1,27 @@
+[
+    {
+        "Id": "i-06f6ae68fbb6c00ea",
+        "Tipo": "r6i.large",
+        "Estado": "running",
+        "AZ": "us-east-1a",
+        "IP": "34.207.23.142",
+        "Tags": [
+            {
+                "Key": "Project",
+                "Value": "banco-xyz-eft"
+            },
+            {
+                "Key": "Name",
+                "Value": "banco-xyz-apps"
+            },
+            {
+                "Key": "Role",
+                "Value": "apps"
+            },
+            {
+                "Key": "Owner",
+                "Value": "JuanPablo"
+            }
+        ]
+    }
+]

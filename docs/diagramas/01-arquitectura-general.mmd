@@ -1,0 +1,57 @@
+%% Arquitectura general: canales → BFF → gateway → servicios → BD / Kafka; infraestructura Spring Cloud y observabilidad
+flowchart TB
+  subgraph CAN["Canales"]
+    direction LR
+    WEB["Navegador"]
+    MOB["App móvil"]
+    ATM["Cajero ATM"]
+    API["Operador batch · Auditor<br/>clientes API"]
+  end
+  subgraph BFF["Backend for Frontend · HTTPS · un despliegue por canal"]
+    direction LR
+    BW["bff-web :8443<br/>sesión + cookie · PKCE · CSRF"]
+    BM["bff-mobile :8444<br/>token corto · ETag · gzip · fields="]
+    BA["bff-atm :8445<br/>mTLS · PIN · límites · Idempotency-Key"]
+  end
+  GW["api-gateway :8446<br/>JWT · rate limit · circuit breaker · retry · lb://"]
+  subgraph SVC["Microservicios · escalables con --scale"]
+    direction LR
+    CUS["customers-service<br/>2 réplicas"]
+    ACC["accounts-service<br/>3 réplicas"]
+    PAY["payments-service<br/>2 réplicas"]
+  end
+  BATCH["batch-service<br/>3 jobs Spring Batch"]
+  CSV[("CSV legacy<br/>data/legacy")]
+  subgraph DATA["Datos y mensajería"]
+    direction LR
+    DBS[("PostgreSQL 16<br/>una base por servicio:<br/>customers · accounts · payments · atm · batch")]
+    K[["Kafka KRaft · 8 tópicos × 3 particiones + DLT<br/>outbox · saga · alertas · eventos de batch"]]
+  end
+  subgraph CLOUD["Spring Cloud"]
+    direction LR
+    CFG["config-server<br/>local · docker · aws"]
+    EUR["discovery-server<br/>Eureka"]
+    AUTH["auth-server<br/>OAuth2 / OIDC · JWT"]
+  end
+  subgraph OBS["Observabilidad"]
+    direction LR
+    ZIP["Zipkin<br/>trazas"]
+    PROM["Prometheus"] --> GRAF["Grafana"]
+  end
+
+  WEB --> BW
+  MOB --> BM
+  ATM -- "mTLS" --> BA
+  API --> GW
+  BFF -- "token relay · Eureka + Feign + Resilience4j" --> SVC
+  GW -- "lb://" --> SVC
+  GW --> BATCH
+  CSV --> BATCH
+  SVC --> DATA
+  BATCH --> DATA
+  BA -- "security.alerts" --> DATA
+  CLOUD -. "configuración · registro · JWKS" .-> SVC
+  CLOUD -. "configuración · registro · JWKS" .-> GW
+  SVC -.-> OBS
+  GW -.-> OBS
+  BFF -.-> OBS

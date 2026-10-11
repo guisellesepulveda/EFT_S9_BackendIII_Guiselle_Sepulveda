@@ -1,0 +1,113 @@
+# bff-atm: HTTPS con mTLS OBLIGATORIO (client-auth: need), resource server JWT (scope atm:operate), timeouts estrictos,
+# límites de monto, bloqueo de PIN y Resilience4j sin reintentos de escritura. Los tests importan este mismo archivo.
+server:
+  port: ${SERVER_PORT:8445}
+  ssl:
+    bundle: bff-tls
+    client-auth: need               # el cajero DEBE presentar un certificado firmado por la CA del banco
+  tomcat:
+    connection-timeout: 3s
+    max-http-form-post-size: 4KB
+    max-swallow-size: 8KB
+  max-http-request-header-size: 8KB
+
+spring:
+  ssl:
+    bundle:
+      jks:
+        bff-tls:
+          keystore:
+            location: ${TLS_KEYSTORE:file:certs/out/server.p12}
+            password: ${KEYSTORE_PASSWORD}
+            type: PKCS12
+          truststore:               # CA que firma los certificados de cajero
+            location: ${TLS_TRUSTSTORE:file:certs/out/truststore.p12}
+            password: ${TRUSTSTORE_PASSWORD}
+            type: PKCS12
+  mvc:
+    problemdetails:
+      enabled: true
+
+management:
+  server:
+    port: ${MANAGEMENT_PORT:18445}
+    ssl:
+      enabled: false              # la gestión va en HTTP plano y solo por la red interna (nunca por el puerto público)
+
+eureka:
+  instance:
+    non-secure-port-enabled: false
+    secure-port-enabled: true
+    secure-port: ${server.port}
+
+bff:
+  customer-cache-ttl: 5m
+  atm:
+    require-client-cert: true
+    atm-id-pattern: "^ATM-[0-9]{4}$"   # el CN del certificado debe tener este formato
+    revoked-atms: []                   # lista de revocación mínima (en producción: CRL/OCSP)
+    limits:
+      denomination: 1000               # solo múltiplos del billete mínimo
+      max-per-withdrawal: 200000
+      daily-limit: 500000              # por tarjeta y día
+    pin:
+      max-attempts: 3
+      lock-duration: 15m
+    confirmation-timeout: 3s           # espera máxima de la confirmación del pago; después se informa PENDING
+    poll-interval: 150ms
+
+clients:
+  accounts:
+    url: ""
+  customers:
+    url: ""
+  payments:
+    url: ""
+
+spring.cloud.openfeign.client.config.default:
+  connect-timeout: 500               # ATM: timeouts estrictos, el cajero no espera
+  read-timeout: 1500
+  logger-level: basic
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+        record-exceptions: [feign.FeignException, java.io.IOException, java.util.concurrent.TimeoutException]
+        ignore-exceptions: [cl.bancoxyz.platform.web.ApiException]
+    instances:
+      accounts: {base-config: default}
+      customers: {base-config: default}
+      payments: {base-config: default}
+  retry:
+    configs:
+      default:
+        max-attempts: 2              # el retiro es idempotente (Idempotency-Key hacia payments), por eso reintentar es seguro
+        wait-duration: 100ms
+        retry-exceptions: [feign.FeignException, java.io.IOException, java.util.concurrent.TimeoutException]
+        ignore-exceptions: [cl.bancoxyz.platform.web.ApiException]
+    instances:
+      accounts: {base-config: default}
+      customers: {base-config: default}
+      payments: {base-config: default}
+  timelimiter:
+    configs:
+      default: {timeout-duration: 2s, cancel-running-future: true}
+    instances:
+      accounts: {base-config: default}
+      customers: {base-config: default}
+      payments: {base-config: default}
+  bulkhead:
+    configs:
+      default: {max-concurrent-calls: 20, max-wait-duration: 20ms}
+    instances:
+      accounts: {base-config: default}
+      customers: {base-config: default}
+      payments: {base-config: default}

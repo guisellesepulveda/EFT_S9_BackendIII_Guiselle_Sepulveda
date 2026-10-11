@@ -1,0 +1,12 @@
+# SOLO PARA DESARROLLO / CAPTURAS: publica en 127.0.0.1 los puertos de los microservicios y del batch para abrir su Swagger UI
+# (http://localhost:8081|8082|8083|8085/swagger-ui/index.html). Un puerto de host fijo es incompatible con --scale: úselo con 1 réplica.
+#   docker compose -f docker-compose.yml -f docker-compose.dev-ports.yml up -d
+services:
+  customers-service:
+    ports: ["127.0.0.1:8081:8081"]
+  accounts-service:
+    ports: ["127.0.0.1:8082:8082"]
+  payments-service:
+    ports: ["127.0.0.1:8083:8083"]
+  batch-service:
+    ports: ["127.0.0.1:8085:8085"]
